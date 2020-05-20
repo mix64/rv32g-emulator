@@ -27,15 +27,19 @@ impl Cpu {
     pub fn dump_registers(&self) {
         for i in (0..32).step_by(4) {
             println!(
-                "x{:02}={:#08x} x{:02}={:#08x} x{:02}={:#08x} x{:02}={:#08x}",
+                "x{:02}={:#010x} ({:11})  x{:02}={:#010x} ({:11})  x{:02}={:#010x} ({:11})  x{:02}={:#010x} ({:11})",
                 i,
                 self.regs[i],
+                self.regs[i] as i32,
                 i + 1,
                 self.regs[i + 1],
+                self.regs[i + 1] as i32,
                 i + 2,
                 self.regs[i + 2],
+                self.regs[i + 2] as i32,
                 i + 3,
                 self.regs[i + 3],
+                self.regs[i + 3] as i32,
             );
         }
     }
@@ -116,6 +120,89 @@ impl Cpu {
                         };
                     }
 
+                    // RM32M
+                    /*
+                    Information on zero division. (1.7.2)
+                        We considered raising exceptions on integer divide by zero,
+                        with these exceptions causing a trap in most execution environments.
+                        However, this would be the only arithmetic trap in the standard ISA
+                        (floating-point exceptions set flags and write default values, but do not cause traps)
+                        and would require language implementors to interact
+                        with the execution environment’s trap handlers for this case.
+                        Further, where language standards mandate that a divide-by-zero exception
+                        must cause an immediate control flow change,
+                        only a single branch instruction needs to be added to each divide operation,
+                        and this branch instruction can be inserted after the divide
+                        and should normally be very predictably not taken, adding little runtime overhead.
+
+                        The value of all bits set is returned for both unsigned and signed divide by zero
+                        to simplify the divider circuitry.
+                        The value of all 1s is both the natural value to return for unsigned divide,
+                        representing the largest unsigned number,
+                        and also the natural result for simple unsigned divider implementations.
+                        Signed division is often implemented using an unsigned division circuit
+                        and specifying the same overflow result simplifies the hardware.
+                    */
+                    (0x0, 0x01) => {
+                        // mul
+                        self.regs[rd] = self.regs[rs1].wrapping_mul(self.regs[rs2]);
+                    }
+                    (0x1, 0x01) => {
+                        // mulh (signed * signed)
+                        self.regs[rd] = ((self.regs[rs1] as i32 as i64)
+                            .wrapping_mul(self.regs[rs2] as i32 as i64)
+                            >> 32) as u32
+                    }
+                    (0x2, 0x01) => {
+                        // mulhsu (signed rs1 * unsigned rs2)
+                        self.regs[rd] = ((self.regs[rs1] as i32 as i64)
+                            .wrapping_mul(self.regs[rs2] as u64 as i64)
+                            >> 32) as u32;
+                    }
+                    (0x3, 0x01) => {
+                        // mulhu (unsigned * unsigned)
+                        self.regs[rd] = ((self.regs[rs1] as u64)
+                            .wrapping_mul(self.regs[rs2] as u64)
+                            >> 32) as u32;
+                    }
+                    (0x4, 0x01) => {
+                        // div
+                        self.regs[rd] = if self.regs[rs2] == 0 {
+                            // Divide by Zero
+                            0xFFFF_FFFF // -1
+                        } else {
+                            // By using wrapping_*, Overflow case (dividend == -2^31 && divisor == -1) is included.
+                            (self.regs[rs1] as i32).wrapping_div(self.regs[rs2] as i32) as u32
+                        }
+                    }
+                    (0x5, 0x01) => {
+                        // divu
+                        self.regs[rd] = if self.regs[rs2] == 0 {
+                            // Divide by Zero
+                            0xFFFF_FFFF // -1
+                        } else {
+                            self.regs[rs1].wrapping_div(self.regs[rs2])
+                        }
+                    }
+                    (0x6, 0x01) => {
+                        // rem
+                        self.regs[rd] = if self.regs[rs2] == 0 {
+                            // Divide by Zero
+                            self.regs[rs1]
+                        } else {
+                            // By using wrapping_*, Overflow case (dividend == -2^31 && divisor == -1) is included.
+                            (self.regs[rs1] as i32).wrapping_rem(self.regs[rs2] as i32) as u32
+                        }
+                    }
+                    (0x7, 0x01) => {
+                        // remu
+                        self.regs[rd] = if self.regs[rs2] == 0 {
+                            // Divide by Zero
+                            self.regs[rs1]
+                        } else {
+                            self.regs[rs1].wrapping_rem(self.regs[rs2])
+                        }
+                    }
                     _ => {}
                 }
             }
