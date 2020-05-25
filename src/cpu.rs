@@ -179,7 +179,7 @@ impl Cpu {
                         // divu
                         self.regs[rd] = if self.regs[rs2] == 0 {
                             // Divide by Zero
-                            0xFFFF_FFFF // -1
+                            0xFFFF_FFFF // 2^32-1
                         } else {
                             self.regs[rs1].wrapping_div(self.regs[rs2])
                         }
@@ -437,9 +437,130 @@ impl Cpu {
                 // I-type
             }
             */
+
+            // RV32A
+            /*
+                The A extension requires that the address held in rs1 be naturally aligned to the size of the operand.
+                (i.e., eight-byte aligned for 64-bit words and four-byte aligned for 32-bit words)
+                If the address is not naturally aligned, an 'address-misaligned exception' or an 'access-fault exception'
+                will be generated. (1.8.2, 1.8.4)
+            */
+            0b010_1111 => {
+                // TODO: if address is not aligned, raise address-misaligned exception
+                // R-type
+                let rd = mask(inst, 7, 11) as usize;
+                let funct3 = mask(inst, 12, 14);
+                let rs1 = mask(inst, 15, 19) as usize;
+                let rs2 = mask(inst, 20, 24) as usize;
+                let _rl = mask(inst, 25, 25); // release
+                let _aq = mask(inst, 26, 26); // acquire
+                let funct5 = mask(inst, 27, 31);
+
+                match (funct3, funct5) {
+                    (0x2, 0x02) => {
+                        // TODO: implement set reserve
+                        // lr.w
+                        self.regs[rd] = self.ram.read32(self.regs[rs1]);
+                    }
+                    (0x2, 0x03) => {
+                        // TODO: implement check reserve
+                        // sc.w
+                        self.ram.write32(self.regs[rs1], self.regs[rs2]);
+                        self.regs[rd] = 0;
+                    }
+                    (0x2, 0x01) => {
+                        // amoswap.w
+                        /*
+                            These AMO in-structions atomically load a data value from the address in rs1,
+                            place the value into register rd, apply a binary operator to the loaded value
+                            and the original value in rs2, then store the result back to the address in rs1. (1.8.4)
+                        */
+                        self.regs[rd] = self.ram.read32(self.regs[rs1]);
+                        self.ram.write32(self.regs[rs1], self.regs[rs2]);
+
+                        /*
+                            atomically load a 32-bit signed data value from the address in rs1,
+                            place the value into register rd,
+                            swap the loaded value and the original 32-bit signed value in rs2,
+                            then store the result back to the address in rs1.
+                            (https://msyksphinz-self.github.io/riscv-isadoc/html/rva.html#amoswap-w)
+                        */
+                        // self.regs.swap(rd, rs2);
+                    }
+                    (0x2, 0x00) => {
+                        // amoadd.w
+                        self.regs[rd] = self.ram.read32(self.regs[rs1]);
+                        self.ram
+                            .write32(self.regs[rs1], self.regs[rd].wrapping_add(self.regs[rs2]));
+                    }
+                    (0x2, 0x04) => {
+                        // amoxor.w
+                        self.regs[rd] = self.ram.read32(self.regs[rs1]);
+                        self.ram
+                            .write32(self.regs[rs1], self.regs[rd] ^ self.regs[rs2]);
+                    }
+                    (0x2, 0x0C) => {
+                        // amoand.w
+                        self.regs[rd] = self.ram.read32(self.regs[rs1]);
+                        self.ram
+                            .write32(self.regs[rs1], self.regs[rd] & self.regs[rs2]);
+                    }
+                    (0x2, 0x0A) => {
+                        // amoor.w
+                        self.regs[rd] = self.ram.read32(self.regs[rs1]);
+                        self.ram
+                            .write32(self.regs[rs1], self.regs[rd] | self.regs[rs2]);
+                    }
+                    (0x2, 0x10) => {
+                        // amomin.w
+                        self.regs[rd] = self.ram.read32(self.regs[rs1]);
+                        self.ram.write32(
+                            self.regs[rs1],
+                            std::cmp::min(self.regs[rd] as i32, self.regs[rs2] as i32) as u32,
+                        );
+                    }
+                    (0x2, 0x14) => {
+                        // amomax.w
+                        self.regs[rd] = self.ram.read32(self.regs[rs1]);
+                        self.ram.write32(
+                            self.regs[rs1],
+                            std::cmp::max(self.regs[rd] as i32, self.regs[rs2] as i32) as u32,
+                        );
+                    }
+                    (0x2, 0x18) => {
+                        // amominu.w
+                        self.regs[rd] = self.ram.read32(self.regs[rs1]);
+                        self.ram
+                            .write32(self.regs[rs1], std::cmp::min(self.regs[rd], self.regs[rs2]));
+                    }
+                    (0x2, 0x1C) => {
+                        // amomaxu.w
+                        self.regs[rd] = self.ram.read32(self.regs[rs1]);
+                        self.ram
+                            .write32(self.regs[rs1], std::cmp::max(self.regs[rd], self.regs[rs2]));
+                    }
+                    _ => {}
+                }
+            }
+
+            0b000_1111 => {
+                // TODO: implement fence if emulator supports a multi-core processor.
+                // I-type
+                let funct3 = mask(inst, 12, 14);
+                match funct3 {
+                    0x0 => {
+                        // fence
+                    }
+                    0x7 => {
+                        // fence.i
+                    }
+                    _ => {}
+                }
+            }
+
             _ => {
                 // TODO: raise exception of Illegal instruction
-                println!("not implemented yet: opcode {:#x}", opcode);
+                println!("[{:#08x} {:#08x}] not implemented yet: opcode {:#x}", self.pc, inst, opcode);
             }
         }
         // Register x0 is hardwired with all bits equal to 0. (1.2.1)
