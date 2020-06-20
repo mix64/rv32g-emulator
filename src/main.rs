@@ -1,4 +1,5 @@
 mod cpu;
+mod exception;
 mod memory;
 
 use std::env;
@@ -6,7 +7,7 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 
-use crate::cpu::*;
+use crate::cpu::Cpu;
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -23,12 +24,7 @@ fn main() -> io::Result<()> {
     cpu.ram.set(binary);
 
     while cpu.pc < size as u32 {
-        let inst = cpu.fetch();
-        cpu.execute(inst);
-        if cpu.pc == 0 {
-            // ra(x1) initialized 0
-            break;
-        }
+        let result = cpu.run();
     }
     cpu.dump_registers();
 
