@@ -1,4 +1,5 @@
-#[allow(dead_code)]
+#![allow(dead_code)]
+
 pub enum Exception {
     InstructionAddressMisaligned,
     InstructionAccessFault,
@@ -16,7 +17,18 @@ pub enum Exception {
     StoreAMOPageFault,
 }
 
-#[allow(dead_code)]
+pub enum Interrupt {
+    UserSoftwareInterrupt,
+    SupervisorSoftwareInterrupt,
+    MachineSoftwareInterrupt,
+    UserTimerInterrupt,
+    SupervisorTimerInterrupt,
+    MachineTimerInterrupt,
+    UserExternalInterrupt,
+    SupervisorExternalInterrupt,
+    MachineExternalInterrupt,
+}
+
 impl Exception {
     pub fn exception_code(&self) -> u32 {
         match self {
@@ -34,6 +46,22 @@ impl Exception {
             Exception::InstructionPageFault => 12,
             Exception::LoadPageFault => 13,
             Exception::StoreAMOPageFault => 15,
+        }
+    }
+}
+
+impl Interrupt {
+    pub fn exception_code(&self) -> u32 {
+        match self {
+            Interrupt::UserSoftwareInterrupt => 0,
+            Interrupt::SupervisorSoftwareInterrupt => 1,
+            Interrupt::MachineSoftwareInterrupt => 3,
+            Interrupt::UserTimerInterrupt => 4,
+            Interrupt::SupervisorTimerInterrupt => 5,
+            Interrupt::MachineTimerInterrupt => 7,
+            Interrupt::UserExternalInterrupt => 8,
+            Interrupt::SupervisorExternalInterrupt => 9,
+            Interrupt::MachineExternalInterrupt => 11,
         }
     }
 }
