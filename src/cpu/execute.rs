@@ -1,23 +1,27 @@
-use crate::cpu::Cpu;
+use crate::cpu::{Cpu, Mode};
 use crate::exception::Exception;
 
-fn mask(val: u32, start: u32, end: u32) -> u32 {
-    let bits = end - start + 1;
-    (val >> start) & (0xFFFF_FFFF >> (32 - (bits)))
+fn read_bits(reg: u32, range: std::ops::Range<u32>) -> u32 {
+    let mask = if range.end != 31 {
+        std::u32::MAX.wrapping_shl(range.end + 1)
+    } else {
+        0
+    };
+    (reg & !mask) >> range.start
 }
 
 impl Cpu {
     pub fn execute(&mut self, inst: u32) -> Result<(), Exception> {
-        let opcode = mask(inst, 0, 6);
+        let opcode = read_bits(inst, 0..6);
 
         match opcode {
             0b011_0011 => {
                 // R-type
-                let rd = mask(inst, 7, 11) as usize;
-                let funct3 = mask(inst, 12, 14);
-                let rs1 = mask(inst, 15, 19) as usize;
-                let rs2 = mask(inst, 20, 24) as usize;
-                let funct7 = mask(inst, 25, 31);
+                let rd = read_bits(inst, 7..11) as usize;
+                let funct3 = read_bits(inst, 12..14);
+                let rs1 = read_bits(inst, 15..19) as usize;
+                let rs2 = read_bits(inst, 20..24) as usize;
+                let funct7 = read_bits(inst, 25..31);
 
                 match (funct3, funct7) {
                     (0x0, 0x00) => {
@@ -165,16 +169,16 @@ impl Cpu {
 
             0b001_0011 => {
                 // I-type
-                let rd = mask(inst, 7, 11) as usize;
-                let funct3 = mask(inst, 12, 14);
-                let rs1 = mask(inst, 15, 19) as usize;
+                let rd = read_bits(inst, 7..11) as usize;
+                let funct3 = read_bits(inst, 12..14);
+                let rs1 = read_bits(inst, 15..19) as usize;
                 let imm = ((inst as i32) >> 20) as u32;
                 /*
                 The operand to be shifted is in rs1, and the shift amount is
                 encoded in the lower 5 bits of the I-immediate field. (1.2.4)
                 */
-                let shamt = mask(imm, 0, 4);
-                let funct7 = mask(imm, 5, 11);
+                let shamt = read_bits(imm, 0..4);
+                let funct7 = read_bits(imm, 5..11);
 
                 match funct3 {
                     0x0 => {
@@ -228,9 +232,9 @@ impl Cpu {
 
             0b000_0011 => {
                 // I-type
-                let rd = mask(inst, 7, 11) as usize;
-                let funct3 = mask(inst, 12, 14);
-                let rs1 = mask(inst, 15, 19) as usize;
+                let rd = read_bits(inst, 7..11) as usize;
+                let funct3 = read_bits(inst, 12..14);
+                let rs1 = read_bits(inst, 15..19) as usize;
                 let imm = ((inst as i32) >> 20) as u32;
                 let addr = self.regs[rs1].wrapping_add(imm);
 
@@ -266,10 +270,10 @@ impl Cpu {
 
             0b010_0011 => {
                 // S-type
-                let imm1 = mask(inst, 7, 11);
-                let funct3 = mask(inst, 12, 14);
-                let rs1 = mask(inst, 15, 19) as usize;
-                let rs2 = mask(inst, 20, 24) as usize;
+                let imm1 = read_bits(inst, 7..11);
+                let funct3 = read_bits(inst, 12..14);
+                let rs1 = read_bits(inst, 15..19) as usize;
+                let rs2 = read_bits(inst, 20..24) as usize;
                 let imm2 = ((inst & 0xfe00_0000) as i32 >> 25) as u32;
                 let imm = (imm2 << 5) | imm1;
                 let addr = self.regs[rs1].wrapping_add(imm);
@@ -293,12 +297,12 @@ impl Cpu {
 
             0b110_0011 => {
                 // B-type
-                let imm11 = mask(inst, 7, 7);
-                let imm4 = mask(inst, 8, 11);
-                let funct3 = mask(inst, 12, 14);
-                let rs1 = mask(inst, 15, 19) as usize;
-                let rs2 = mask(inst, 20, 24) as usize;
-                let imm10 = mask(inst, 25, 30);
+                let imm11 = read_bits(inst, 7..7);
+                let imm4 = read_bits(inst, 8..11);
+                let funct3 = read_bits(inst, 12..14);
+                let rs1 = read_bits(inst, 15..19) as usize;
+                let rs2 = read_bits(inst, 20..24) as usize;
+                let imm10 = read_bits(inst, 25..30);
                 let imm12 = ((inst & 0x8000_0000) as i32 >> 31) as u32;
                 // The conditional branch range is ±4 KiB. (1.2.5)
                 let imm = imm12 << 12 | imm11 << 11 | imm10 << 5 | imm4 << 1;
@@ -347,10 +351,10 @@ impl Cpu {
             0b110_1111 => {
                 // J-type
                 // jal
-                let rd = mask(inst, 7, 11) as usize;
-                let imm19 = mask(inst, 12, 19);
-                let imm11 = mask(inst, 20, 20);
-                let imm10 = mask(inst, 21, 30);
+                let rd = read_bits(inst, 7..11) as usize;
+                let imm19 = read_bits(inst, 12..19);
+                let imm11 = read_bits(inst, 20..20);
+                let imm10 = read_bits(inst, 21..30);
                 let imm20 = ((inst & 0x8000_0000) as i32 >> 31) as u32;
                 // Jumps can therefore target a ±1 MiB range (1.2.5)
                 let imm = imm20 << 20 | imm19 << 12 | imm11 << 11 | imm10 << 1;
@@ -362,9 +366,9 @@ impl Cpu {
             0b110_0111 => {
                 // I-type
                 // jalr
-                let rd = mask(inst, 7, 11) as usize;
-                let funct3 = mask(inst, 12, 14);
-                let rs1 = mask(inst, 15, 19) as usize;
+                let rd = read_bits(inst, 7..11) as usize;
+                let funct3 = read_bits(inst, 12..14);
+                let rs1 = read_bits(inst, 15..19) as usize;
                 let imm = ((inst as i32) >> 20) as u32;
                 let addr = self.regs[rs1].wrapping_add(imm);
                 if funct3 == 0 {
@@ -376,23 +380,94 @@ impl Cpu {
             0b011_0111 => {
                 // U-type
                 // lui
-                let rd = mask(inst, 7, 11) as usize;
+                let rd = read_bits(inst, 7..11) as usize;
                 self.regs[rd] = inst & 0xFFFF_F000;
             }
 
             0b001_0111 => {
                 // U-type
                 // auipc
-                let rd = mask(inst, 7, 11) as usize;
+                let rd = read_bits(inst, 7..11) as usize;
                 let imm = inst & 0xFFFF_F000;
                 self.regs[rd] = self.pc.wrapping_add(imm).wrapping_sub(4);
             }
 
-            /* TODO: implement ecall and ebreak
+            // RV32 Zicsr + ecall/ebreak
             0b111_0011 => {
-                // I-type
+                let rd = read_bits(inst, 7..11) as usize;
+                let funct3 = read_bits(inst, 12..14);
+                let imm = read_bits(inst, 15..19);
+                let rs1 = imm as usize;
+                let funct12 = read_bits(inst, 20..31);
+                let csr = funct12 as u16;
+
+                match funct3 {
+                    0b000 => {
+                        match funct12 {
+                            0x0 => {
+                                // ecall
+                                match self.mode {
+                                    Mode::Machine => {
+                                        return Err(Exception::EnvironmentCallFromMMode)
+                                    }
+                                    Mode::Supervisor => {
+                                        return Err(Exception::EnvironmentCallFromSMode)
+                                    }
+                                    Mode::User => return Err(Exception::EnvironmentCallFromUMode),
+                                }
+                            }
+                            0x1 => {
+                                // ebreak
+                                return Err(Exception::Breakpoint);
+                            }
+                            _ => {}
+                        }
+                    }
+                    0b001 => {
+                        // csrrw
+                        if rd != 0 {
+                            self.regs[rd] = self.csrr(csr)?;
+                        }
+                        self.csrw(csr, self.regs[rs1])?;
+                    }
+                    0b010 => {
+                        // csrrs
+                        self.regs[rd] = self.csrr(csr)?;
+                        if rs1 != 0 {
+                            self.csrw(csr, self.regs[rd] | self.regs[rs1])?;
+                        }
+                    }
+                    0b011 => {
+                        // csrrc
+                        self.regs[rd] = self.csrr(csr)?;
+                        if rs1 != 0 {
+                            self.csrw(csr, self.regs[rd] & !self.regs[rs1])?;
+                        }
+                    }
+                    0b101 => {
+                        // csrrwi
+                        if rd != 0 {
+                            self.regs[rd] = self.csrr(csr)?;
+                        }
+                        self.csrw(csr, imm)?;
+                    }
+                    0b110 => {
+                        // csrrsi
+                        self.regs[rd] = self.csrr(csr)?;
+                        if imm != 0 {
+                            self.csrw(csr, self.regs[rd] | imm)?;
+                        }
+                    }
+                    0b111 => {
+                        // csrrci
+                        self.regs[rd] = self.csrr(csr)?;
+                        if imm != 0 {
+                            self.csrw(csr, self.regs[rd] & !imm)?;
+                        }
+                    }
+                    _ => {}
+                }
             }
-            */
 
             // RV32A
             /*
@@ -404,13 +479,13 @@ impl Cpu {
             0b010_1111 => {
                 // TODO: if address is not aligned, raise address-misaligned exception
                 // R-type
-                let rd = mask(inst, 7, 11) as usize;
-                let funct3 = mask(inst, 12, 14);
-                let rs1 = mask(inst, 15, 19) as usize;
-                let rs2 = mask(inst, 20, 24) as usize;
-                let _rl = mask(inst, 25, 25); // release
-                let _aq = mask(inst, 26, 26); // acquire
-                let funct5 = mask(inst, 27, 31);
+                let rd = read_bits(inst, 7..11) as usize;
+                let funct3 = read_bits(inst, 12..14);
+                let rs1 = read_bits(inst, 15..19) as usize;
+                let rs2 = read_bits(inst, 20..24) as usize;
+                let _rl = read_bits(inst, 25..25); // release
+                let _aq = read_bits(inst, 26..26); // acquire
+                let funct5 = read_bits(inst, 27..31);
 
                 match (funct3, funct5) {
                     (0x2, 0x02) => {
@@ -506,7 +581,7 @@ impl Cpu {
             0b000_1111 => {
                 // TODO: implement fence if emulator supports a multi-core processor.
                 // I-type
-                let funct3 = mask(inst, 12, 14);
+                let funct3 = read_bits(inst, 12..14);
                 match funct3 {
                     0x0 => {
                         // fence
