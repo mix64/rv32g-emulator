@@ -96,8 +96,29 @@ pub const MEDELEG: u16 = 0x302;
 // Machine interrupt delegation register.
 pub const MIDELEG: u16 = 0x303;
 // Machine interrupt-enable register.
+// Restricted views of the "mie" appear as the "sie" and "uie" (3.1.6)
 pub const MIE: u16 = 0x304;
-// Machine trap-handler base address.
+// Software Interrupt Enable
+pub const MIE_USIE: u32 = 0b1;
+pub const MIE_SSIE: u32 = 0b1 << 1;
+pub const MIE_MSIE: u32 = 0b1 << 3;
+// Timer Interrupt Enable
+pub const MIE_UTIE: u32 = 0b1 << 4;
+pub const MIE_STIE: u32 = 0b1 << 5;
+pub const MIE_MTIE: u32 = 0b1 << 7;
+// External Interrupt Enable
+pub const MIE_UEIE: u32 = 0b1 << 8;
+pub const MIE_SEIE: u32 = 0b1 << 9;
+pub const MIE_MEIE: u32 = 0b1 << 11;
+/*
+    (3.1.7) Machine trap-handler base address.
+
+    31     2 1     0
+     | BASE | MODE |
+     MODE    Name        Description
+       0    Direct      All exceptions set pc to BASE.
+       1    Vectored    Asynchronous interrupts set pc to BASE+4×cause.
+*/
 pub const MTVEC: u16 = 0x305;
 // Machine counter enable.
 pub const MCOUNTEREN: u16 = 0x306;
@@ -105,14 +126,67 @@ pub const MCOUNTEREN: u16 = 0x306;
 // Machine Trap Handling
 // Scratch register for machine trap handlers.
 pub const MSCRATCH: u16 = 0x340;
-// Machine exception program counter.
+/*
+    (3.1.15) Machine exception program counter. (WARL)
+
+    On implementations that support only IALIGN=32, the two low bits (mepc[1:0]) are always zero.
+    When a trap is taken into M-mode, mepc is written with the virtual address of the instruction
+    that was interrupted or that encountered the exception.
+    Otherwise, mepc is never written by the implementation, though it may be explicitly written by software.
+*/
 pub const MEPC: u16 = 0x341;
+/*
+    (3.1.16) Machine Cause Register
+
+    When a trap is taken into M-mode, mcause is written with a code indicating the event that caused the trap.
+    Otherwise, mcause is never written by the implementation, though it may be explicitly written by software.
+
+    The Interrupt bit in the mcause register is set if the trap was caused by an interrupt.
+    The Exception Code field contains a code identifying the last exception.
+    The Exception Code is a WLRL field, so is only guaranteed to hold supported exception codes.
+
+    Priority of Exception (Table 3.7)
+*/
 // Machine trap cause.
 pub const MCAUSE: u16 = 0x342;
 // Machine bad address or instruction.
 pub const MTVAL: u16 = 0x343;
+/*
+    (3.1.9) Machine Interrupt Registers
+
+    Only the bits corresponding to lower-privilege software interrupts (USIP, SSIP), timer interrupts (UTIP, STIP),
+    and external interrupts (UEIP, SEIP) in mip are writable through this CSR address; the remaining bits are read-only.
+
+    The machine-level MSIP bits are written by accesses to memory-mapped control registers, which are used by
+    remote harts to provide machine-mode interprocessor interrupts.
+    Interprocessor interrupts for lower privilege levels are implemented through implementation-specific mechanisms,
+    e.g., via calls to an AEE or SEE, which might ultimately result in a machine-mode write to the receiving hart’s MSIP bit.
+
+    By default, M-mode interrupts are globally enabled if the hart’s current privilege mode is less than M,
+    or if the current privilege mode is M and the MIE bit in the mstatus register is set.
+    If bit i in mideleg is set, however, interrupts are considered to be globally enabled if the hart’s
+    current privilege mode equals the delegated privilege mode (S or U) and that mode’s interrupt enable bit (SIE or UIE) is set,
+    or if the current privilege mode is less than the delegated privilege mode.
+
+    Multiple simultaneous interrupts destined for the same privilege mode are handled in the following decreasing priority order:
+    MEI, MSI, MTI, SEI, SSI, STI, UEI, USI, UTI.
+    Synchronous exceptions are of lower priority than all interrupts.
+*/
 // Machine interrupt pending.
+// Restricted views of the "mip" appear as the "sip" and "uip" (3.1.6)
 pub const MIP: u16 = 0x344;
+// Software Interrupt (rw-rw-ro)
+pub const MIP_USIP: u32 = 0b1;
+pub const MIP_SSIP: u32 = 0b1 << 1;
+pub const MIP_MSIP: u32 = 0b1 << 3;
+// Timer Interrupt (rw-rw-ro)
+pub const MIP_UTIP: u32 = 0b1 << 4;
+pub const MIP_STIP: u32 = 0b1 << 5;
+pub const MIP_MTIP: u32 = 0b1 << 7;
+// External Interrupt
+pub const MIP_UEIP: u32 = 0b1 << 8;
+pub const MIP_SEIP: u32 = 0b1 << 9;
+pub const MIP_MEIP: u32 = 0b1 << 11;
 
 // Machine Memory Protection
 // Physical memory protection configration
