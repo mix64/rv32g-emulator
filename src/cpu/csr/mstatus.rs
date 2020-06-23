@@ -14,17 +14,17 @@
     xIE is set to xPIE; the privilege mode is changed to y; xPIE is set to 1; and xPP is set to U.
 */
 // Interrupt Enable
-pub const MSTATUS_UIE: u32 = 0b1;
-pub const MSTATUS_SIE: u32 = 0b1 << 1;
-pub const MSTATUS_MIE: u32 = 0b1 << 3;
+pub const MSTATUS_UIE: u32 = 0;
+pub const MSTATUS_SIE: u32 = 1;
+pub const MSTATUS_MIE: u32 = 3;
 // Previous Interrupt Enable
-pub const MSTATUS_UPIE: u32 = 0b1 << 4;
-pub const MSTATUS_SPIE: u32 = 0b1 << 5;
-pub const MSTATUS_MPIE: u32 = 0b1 << 7;
+pub const MSTATUS_UPIE: u32 = 4;
+pub const MSTATUS_SPIE: u32 = 5;
+pub const MSTATUS_MPIE: u32 = 7;
 // Previous Privilege mode
 // The xPP fields can only hold privilege modes up to x.
-pub const MSTATUS_SPP: u32 = 0b1 << 8;
-pub const MSTATUS_MPP: u32 = 0b11 << 11;
+pub const MSTATUS_SPP: u32 = 8;
+pub const MSTATUS_MPP: u32 = 11;
 
 /*
     (3.1.6.3) Memory Privilege
@@ -47,11 +47,11 @@ pub const MSTATUS_MPP: u32 = 0b11 << 11;
     When MXR=1, loads from pages marked either readable or executable (R=1 or X=1) will succeed.
 */
 // Modify PRiVilege
-pub const MSTATUS_MPRV: u32 = 0b1 << 17;
+pub const MSTATUS_MPRV: u32 = 17;
 // permit Supervisor User Memory access
-pub const MSTATUS_SUM: u32 = 0b1 << 18;
+pub const MSTATUS_SUM: u32 = 18;
 // Make eXecutable Readable
-pub const MSTATUS_MXR: u32 = 0b1 << 19;
+pub const MSTATUS_MXR: u32 = 19;
 
 /*
     (3.1.6.4) Virtualization Support
@@ -75,11 +75,11 @@ pub const MSTATUS_MXR: u32 = 0b1 << 19;
     When TSR=0, this peration is permitted in S-mode.
 */
 // Trap Virtual Memory
-pub const MSTATUS_TVM: u32 = 0b1 << 20;
+pub const MSTATUS_TVM: u32 = 20;
 // Timeout Wait
-pub const MSTATUS_TW: u32 = 0b1 << 21;
+pub const MSTATUS_TW: u32 = 21;
 // Trap SRet
-pub const MSTATUS_TSR: u32 = 0b1 << 22;
+pub const MSTATUS_TSR: u32 = 22;
 
 /*
     (3.1.6.5) Extension Context Status
@@ -100,6 +100,6 @@ pub const MSTATUS_TSR: u32 = 0b1 << 22;
     The SD bit is a read-only bit that summarizes whether either the FS field or XS field signals the presence of some dirty state
     that will require saving extended user context to memory.
 */
-pub const MSTATUS_FS: u32 = 0b11 << 13; // WARL
-pub const MSTATUS_XS: u32 = 0b11 << 15; // read-only
-pub const MSTATUS_SD: u32 = 0b1 << 31; // read-only
+pub const MSTATUS_FS: u32 = 13; // WARL
+pub const MSTATUS_XS: u32 = 15; // read-only
+pub const MSTATUS_SD: u32 = 31; // read-only
