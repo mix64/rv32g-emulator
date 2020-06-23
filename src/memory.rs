@@ -13,8 +13,8 @@ impl Memory {
         }
     }
 
-    pub fn set(&mut self, binary: Vec<u8>) {
-        self.ram.splice(..binary.len(), binary.iter().cloned());
+    pub fn set(&mut self, binary: &Vec<u8>) {
+        self.ram.clone_from(binary);
     }
 
     pub fn read8(&self, addr: u32) -> Result<u32, Exception> {
