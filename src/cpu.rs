@@ -8,11 +8,21 @@ use crate::memory::*;
 use csr::CSRs;
 
 const SP: usize = 2;
+
+#[allow(dead_code)]
+#[derive(Debug, PartialEq, PartialOrd, Eq, Copy, Clone)]
+pub enum Mode {
+    User = 0b00,
+    Supervisor = 0b01,
+    Machine = 0b11,
+}
+
 pub struct Cpu {
     pub regs: [u32; 32],
     pub fregs: [f32; 32],
     pub csrs: CSRs,
     pub pc: u32,
+    pub mode: Mode,
     pub ram: Memory,
 }
 
@@ -26,14 +36,17 @@ impl Cpu {
             csrs: CSRs::new(),
             pc: 0,
             ram: Memory::new(),
+            mode: Mode::Machine,
         }
     }
 
-    pub fn run(&mut self) -> Result<(), Exception> {
+    pub fn run(&mut self, end: u32) -> Result<(), Exception> {
         loop {
             let inst = self.fetch()?;
+
+            // println!("[{:08x}] {:08x}", self.pc - 4, inst);
             self.execute(inst)?;
-            if self.pc == 0 {
+            if self.pc == end {
                 return Ok(());
             }
         }
