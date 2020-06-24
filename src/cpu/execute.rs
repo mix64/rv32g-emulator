@@ -1,14 +1,7 @@
+use super::csr;
+use crate::bits::*;
 use crate::cpu::{Cpu, Mode};
 use crate::exception::Exception;
-
-fn read_bits(reg: u32, range: std::ops::Range<u32>) -> u32 {
-    let mask = if range.end != 31 {
-        std::u32::MAX.wrapping_shl(range.end + 1)
-    } else {
-        0
-    };
-    (reg & !mask) >> range.start
-}
 
 impl Cpu {
     pub fn execute(&mut self, inst: u32) -> Result<(), Exception> {
@@ -419,6 +412,63 @@ impl Cpu {
                             0x1 => {
                                 // ebreak
                                 return Err(Exception::Breakpoint);
+                            }
+                            0x002 => {
+                                // uret
+                            }
+                            0x102 => {
+                                // sret
+                                // (3.1.6.4) SRET should also raise an illegal instruction exception when TSR=1 in mstatus
+                                let mut mstatus = self.csrr(csr::MSTATUS)?;
+                                if read_bit(mstatus, csr::MSTATUS_TSR) != 0 {
+                                    return Err(Exception::IllegalInstruction);
+                                }
+                                if self.mode == Mode::User {
+                                    return Err(Exception::IllegalInstruction);
+                                }
+
+                                self.pc = self.csrr(csr::SEPC)?;
+                                self.mode = match read_bit(mstatus, csr::MSTATUS_SPP) {
+                                    0x0 => Mode::User,
+                                    0x1 => Mode::Supervisor,
+                                    _ => panic!("unknown sstatus.SPP"),
+                                };
+
+                                let spie = read_bit(mstatus, csr::MSTATUS_SPIE);
+                                write_bit(&mut mstatus, csr::MSTATUS_SIE, spie);
+                                write_bit(&mut mstatus, csr::MSTATUS_SPIE, 1);
+                                write_bit(&mut mstatus, csr::MSTATUS_SPP, Mode::User as u32);
+                            }
+                            0x302 => {
+                                // mret
+                                if self.mode != Mode::Machine {
+                                    return Err(Exception::IllegalInstruction);
+                                }
+
+                                self.pc = self.csrr(csr::MEPC)?;
+                                let mut mstatus = self.csrr(csr::MSTATUS)?;
+                                self.mode = match read_bits(
+                                    mstatus,
+                                    csr::MSTATUS_MPP..csr::MSTATUS_MPP + 1,
+                                ) {
+                                    0x0 => Mode::User,
+                                    0x1 => Mode::Supervisor,
+                                    0x3 => Mode::Machine,
+                                    _ => panic!("unknown mstatus.MPP"),
+                                };
+
+                                let mpie = read_bit(mstatus, csr::MSTATUS_MPIE);
+                                write_bit(&mut mstatus, csr::MSTATUS_MIE, mpie);
+                                write_bit(&mut mstatus, csr::MSTATUS_MPIE, 1);
+                                write_bits(
+                                    &mut mstatus,
+                                    csr::MSTATUS_MPP..csr::MSTATUS_MPP + 1,
+                                    Mode::User as u32,
+                                );
+                                self.csrw(csr::MSTATUS, mstatus)?;
+                            }
+                            0x105 => {
+                                // wfi
                             }
                             _ => {}
                         }
