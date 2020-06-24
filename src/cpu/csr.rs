@@ -1,33 +1,12 @@
+use crate::bits::*;
 use crate::cpu::{Cpu, Mode};
 use crate::exception::Exception;
 
 mod address;
 mod mstatus;
 
-use address::*;
-use mstatus::*;
-
-fn read_bit(reg: u32, bit: u32) -> u32 {
-    read_bits(reg, bit..bit)
-}
-
-fn read_bits(reg: u32, range: std::ops::Range<u32>) -> u32 {
-    let mask = if range.end != 31 {
-        std::u32::MAX.wrapping_shl(range.end + 1)
-    } else {
-        0
-    };
-    (reg & !mask) >> range.start
-}
-
-fn write_bit(reg: &mut u32, bit: u32, val: u32) {
-    write_bits(reg, bit..bit, val)
-}
-
-fn write_bits(reg: &mut u32, range: std::ops::Range<u32>, val: u32) {
-    let mask = (!0 << (range.end + 1)) | !(!0 << range.start);
-    *reg = *reg & mask | val << range.start;
-}
+pub use address::*;
+pub use mstatus::*;
 
 pub struct CSRs {
     mstatus: u32,

@@ -5,6 +5,7 @@ use std::env;
 mod cpu;
 mod exception;
 mod memory;
+mod bits;
 
 use cpu::Cpu;
 
