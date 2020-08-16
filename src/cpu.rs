@@ -1,7 +1,8 @@
-mod execute;
-
 #[allow(dead_code)]
 mod csr;
+mod execute;
+#[allow(unused_variables)]
+mod fpu;
 
 use crate::exception::Exception;
 use crate::memory::*;
@@ -18,8 +19,9 @@ pub enum Mode {
 }
 
 pub struct Cpu {
-    pub regs: [u32; 32],
-    pub fregs: [f32; 32],
+    pub xregs: [u32; 32],
+    pub fregs32: [f32; 32],
+    pub fregs64: [f64; 32],
     pub csrs: CSRs,
     pub pc: u32,
     pub mode: Mode,
@@ -28,11 +30,12 @@ pub struct Cpu {
 
 impl Cpu {
     pub fn new() -> Self {
-        let mut regs: [u32; 32] = [0; 32];
-        regs[SP] = MEMORY_SIZE;
+        let mut xregs: [u32; 32] = [0; 32];
+        xregs[SP] = MEMORY_SIZE;
         Cpu {
-            regs,
-            fregs: [0.0; 32],
+            xregs,
+            fregs32: [0.0f32; 32],
+            fregs64: [0.0f64; 32],
             csrs: CSRs::new(),
             pc: 0,
             ram: Memory::new(),
@@ -67,17 +70,44 @@ impl Cpu {
             println!(
                 "x{:02}={:#010x} ({:11})  x{:02}={:#010x} ({:11})  x{:02}={:#010x} ({:11})  x{:02}={:#010x} ({:11})",
                 i,
-                self.regs[i],
-                self.regs[i] as i32,
+                self.xregs[i],
+                self.xregs[i] as i32,
                 i + 1,
-                self.regs[i + 1],
-                self.regs[i + 1] as i32,
+                self.xregs[i + 1],
+                self.xregs[i + 1] as i32,
                 i + 2,
-                self.regs[i + 2],
-                self.regs[i + 2] as i32,
+                self.xregs[i + 2],
+                self.xregs[i + 2] as i32,
                 i + 3,
-                self.regs[i + 3],
-                self.regs[i + 3] as i32,
+                self.xregs[i + 3],
+                self.xregs[i + 3] as i32,
+            );
+        }
+        for i in (0..32).step_by(4) {
+            println!(
+                "f{:02}={:}  f{:02}={:}  f{:02}={:}  f{:02}={:}",
+                i,
+                self.fregs32[i],
+                i + 1,
+                self.fregs32[i + 1],
+                i + 2,
+                self.fregs32[i + 2],
+                i + 3,
+                self.fregs32[i + 3],
+            );
+        }
+
+        for i in (0..32).step_by(4) {
+            println!(
+                "f{:02}={:}  f{:02}={:}  f{:02}={:}  f{:02}={:}",
+                i,
+                self.fregs64[i],
+                i + 1,
+                self.fregs64[i + 1],
+                i + 2,
+                self.fregs64[i + 2],
+                i + 3,
+                self.fregs64[i + 3],
             );
         }
     }

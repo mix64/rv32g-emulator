@@ -11,6 +11,19 @@ pub fn read_bits(reg: u32, range: std::ops::Range<u32>) -> u32 {
     (reg & !mask) >> range.start
 }
 
+pub fn read_bit64(reg: u64, bit: u32) -> u64 {
+    read_bits64(reg, bit..bit)
+}
+
+pub fn read_bits64(reg: u64, range: std::ops::Range<u32>) -> u64 {
+    let mask = if range.end < 63 {
+        std::u64::MAX.wrapping_shl(range.end + 1)
+    } else {
+        0
+    };
+    (reg & !mask) >> range.start
+}
+
 pub fn write_bit(reg: &mut u32, bit: u32, val: u32) {
     write_bits(reg, bit..bit, val)
 }

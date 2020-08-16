@@ -1,7 +1,9 @@
 use super::csr;
+use super::fpu;
 use crate::bits::*;
 use crate::cpu::{Cpu, Mode};
 use crate::exception::Exception;
+
 
 impl Cpu {
     pub fn execute(&mut self, inst: u32) -> Result<(), Exception> {
@@ -19,23 +21,23 @@ impl Cpu {
                 match (funct3, funct7) {
                     (0x0, 0x00) => {
                         // add
-                        self.regs[rd] = self.regs[rs1].wrapping_add(self.regs[rs2]);
+                        self.xregs[rd] = self.xregs[rs1].wrapping_add(self.xregs[rs2]);
                     }
                     (0x0, 0x20) => {
                         // sub
-                        self.regs[rd] = self.regs[rs1].wrapping_sub(self.regs[rs2]);
+                        self.xregs[rd] = self.xregs[rs1].wrapping_sub(self.xregs[rs2]);
                     }
                     (0x4, 0x00) => {
                         // xor
-                        self.regs[rd] = self.regs[rs1] ^ self.regs[rs2];
+                        self.xregs[rd] = self.xregs[rs1] ^ self.xregs[rs2];
                     }
                     (0x6, 0x00) => {
                         // or
-                        self.regs[rd] = self.regs[rs1] | self.regs[rs2];
+                        self.xregs[rd] = self.xregs[rs1] | self.xregs[rs2];
                     }
                     (0x7, 0x00) => {
                         // and
-                        self.regs[rd] = self.regs[rs1] & self.regs[rs2];
+                        self.xregs[rd] = self.xregs[rs1] & self.xregs[rs2];
                     }
                     /*
                     SLL, SRL, and SRA perform logical left, logical right, and arithmetic right shifts
@@ -43,22 +45,22 @@ impl Cpu {
                     */
                     (0x1, 0x00) => {
                         // sll
-                        let shamt = self.regs[rs2] & 0b1_1111;
-                        self.regs[rd] = self.regs[rs1].wrapping_shl(shamt);
+                        let shamt = self.xregs[rs2] & 0b1_1111;
+                        self.xregs[rd] = self.xregs[rs1].wrapping_shl(shamt);
                     }
                     (0x5, 0x00) => {
                         // srl
-                        let shamt = self.regs[rs2] & 0b1_1111;
-                        self.regs[rd] = self.regs[rs1].wrapping_shr(shamt);
+                        let shamt = self.xregs[rs2] & 0b1_1111;
+                        self.xregs[rd] = self.xregs[rs1].wrapping_shr(shamt);
                     }
                     (0x5, 0x20) => {
                         // sra
-                        let shamt = self.regs[rs2] & 0b1_1111;
-                        self.regs[rd] = (self.regs[rs1] as i32).wrapping_shr(shamt) as u32;
+                        let shamt = self.xregs[rs2] & 0b1_1111;
+                        self.xregs[rd] = (self.xregs[rs1] as i32).wrapping_shr(shamt) as u32;
                     }
                     (0x2, 0x00) => {
                         // slt
-                        self.regs[rd] = if (self.regs[rs1] as i32) < (self.regs[rs2] as i32) {
+                        self.xregs[rd] = if (self.xregs[rs1] as i32) < (self.xregs[rs2] as i32) {
                             1
                         } else {
                             0
@@ -66,7 +68,7 @@ impl Cpu {
                     }
                     (0x3, 0x00) => {
                         // sltu
-                        self.regs[rd] = if self.regs[rs1] < self.regs[rs2] {
+                        self.xregs[rd] = if self.xregs[rs1] < self.xregs[rs2] {
                             1
                         } else {
                             0
@@ -98,62 +100,62 @@ impl Cpu {
                     */
                     (0x0, 0x01) => {
                         // mul
-                        self.regs[rd] = self.regs[rs1].wrapping_mul(self.regs[rs2]);
+                        self.xregs[rd] = self.xregs[rs1].wrapping_mul(self.xregs[rs2]);
                     }
                     (0x1, 0x01) => {
                         // mulh (signed * signed)
-                        self.regs[rd] = ((self.regs[rs1] as i32 as i64)
-                            .wrapping_mul(self.regs[rs2] as i32 as i64)
+                        self.xregs[rd] = ((self.xregs[rs1] as i32 as i64)
+                            .wrapping_mul(self.xregs[rs2] as i32 as i64)
                             >> 32) as u32
                     }
                     (0x2, 0x01) => {
                         // mulhsu (signed rs1 * unsigned rs2)
-                        self.regs[rd] = ((self.regs[rs1] as i32 as i64)
-                            .wrapping_mul(self.regs[rs2] as u64 as i64)
+                        self.xregs[rd] = ((self.xregs[rs1] as i32 as i64)
+                            .wrapping_mul(self.xregs[rs2] as u64 as i64)
                             >> 32) as u32;
                     }
                     (0x3, 0x01) => {
                         // mulhu (unsigned * unsigned)
-                        self.regs[rd] = ((self.regs[rs1] as u64)
-                            .wrapping_mul(self.regs[rs2] as u64)
+                        self.xregs[rd] = ((self.xregs[rs1] as u64)
+                            .wrapping_mul(self.xregs[rs2] as u64)
                             >> 32) as u32;
                     }
                     (0x4, 0x01) => {
                         // div
-                        self.regs[rd] = if self.regs[rs2] == 0 {
+                        self.xregs[rd] = if self.xregs[rs2] == 0 {
                             // Divide by Zero
                             0xFFFF_FFFF // -1
                         } else {
                             // By using wrapping_*, Overflow case (dividend == -2^31 && divisor == -1) is included.
-                            (self.regs[rs1] as i32).wrapping_div(self.regs[rs2] as i32) as u32
+                            (self.xregs[rs1] as i32).wrapping_div(self.xregs[rs2] as i32) as u32
                         }
                     }
                     (0x5, 0x01) => {
                         // divu
-                        self.regs[rd] = if self.regs[rs2] == 0 {
+                        self.xregs[rd] = if self.xregs[rs2] == 0 {
                             // Divide by Zero
                             0xFFFF_FFFF // 2^32-1
                         } else {
-                            self.regs[rs1].wrapping_div(self.regs[rs2])
+                            self.xregs[rs1].wrapping_div(self.xregs[rs2])
                         }
                     }
                     (0x6, 0x01) => {
                         // rem
-                        self.regs[rd] = if self.regs[rs2] == 0 {
+                        self.xregs[rd] = if self.xregs[rs2] == 0 {
                             // Divide by Zero
-                            self.regs[rs1]
+                            self.xregs[rs1]
                         } else {
                             // By using wrapping_*, Overflow case (dividend == -2^31 && divisor == -1) is included.
-                            (self.regs[rs1] as i32).wrapping_rem(self.regs[rs2] as i32) as u32
+                            (self.xregs[rs1] as i32).wrapping_rem(self.xregs[rs2] as i32) as u32
                         }
                     }
                     (0x7, 0x01) => {
                         // remu
-                        self.regs[rd] = if self.regs[rs2] == 0 {
+                        self.xregs[rd] = if self.xregs[rs2] == 0 {
                             // Divide by Zero
-                            self.regs[rs1]
+                            self.xregs[rs1]
                         } else {
-                            self.regs[rs1].wrapping_rem(self.regs[rs2])
+                            self.xregs[rs1].wrapping_rem(self.xregs[rs2])
                         }
                     }
                     _ => {}
@@ -176,27 +178,27 @@ impl Cpu {
                 match funct3 {
                     0x0 => {
                         // addi
-                        self.regs[rd] = self.regs[rs1].wrapping_add(imm);
+                        self.xregs[rd] = self.xregs[rs1].wrapping_add(imm);
                     }
                     0x4 => {
                         // xori
-                        self.regs[rd] = self.regs[rs1] ^ imm;
+                        self.xregs[rd] = self.xregs[rs1] ^ imm;
                     }
                     0x6 => {
                         // ori
-                        self.regs[rd] = self.regs[rs1] | imm;
+                        self.xregs[rd] = self.xregs[rs1] | imm;
                     }
                     0x7 => {
                         // andi
-                        self.regs[rd] = self.regs[rs1] & imm;
+                        self.xregs[rd] = self.xregs[rs1] & imm;
                     }
                     0x1 => {
                         // slli
-                        self.regs[rd] = self.regs[rs1].wrapping_shl(shamt);
+                        self.xregs[rd] = self.xregs[rs1].wrapping_shl(shamt);
                     }
                     0x2 => {
                         // slti
-                        self.regs[rd] = if (self.regs[rs1] as i32) < (imm as i32) {
+                        self.xregs[rd] = if (self.xregs[rs1] as i32) < (imm as i32) {
                             1
                         } else {
                             0
@@ -204,17 +206,17 @@ impl Cpu {
                     }
                     0x3 => {
                         // sltiu
-                        self.regs[rd] = if self.regs[rs1] < imm { 1 } else { 0 };
+                        self.xregs[rd] = if self.xregs[rs1] < imm { 1 } else { 0 };
                     }
                     0x5 => {
                         match funct7 {
                             0x00 => {
                                 // srli
-                                self.regs[rd] = self.regs[rs1].wrapping_shr(shamt);
+                                self.xregs[rd] = self.xregs[rs1].wrapping_shr(shamt);
                             }
                             0x20 => {
                                 // srai
-                                self.regs[rd] = (self.regs[rs1] as i32).wrapping_shr(shamt) as u32;
+                                self.xregs[rd] = (self.xregs[rs1] as i32).wrapping_shr(shamt) as u32;
                             }
                             _ => {}
                         }
@@ -229,33 +231,33 @@ impl Cpu {
                 let funct3 = read_bits(inst, 12..14);
                 let rs1 = read_bits(inst, 15..19) as usize;
                 let imm = ((inst as i32) >> 20) as u32;
-                let addr = self.regs[rs1].wrapping_add(imm);
+                let addr = self.xregs[rs1].wrapping_add(imm);
 
                 match funct3 {
                     0x0 => {
                         // lb
                         let val = self.ram.read8(addr)?;
-                        self.regs[rd] = val as i8 as i32 as u32;
+                        self.xregs[rd] = val as i8 as i32 as u32;
                     }
                     0x1 => {
                         // lh
                         let val = self.ram.read16(addr)?;
-                        self.regs[rd] = val as i16 as i32 as u32;
+                        self.xregs[rd] = val as i16 as i32 as u32;
                     }
                     0x2 => {
                         // lw
                         let val = self.ram.read32(addr)?;
-                        self.regs[rd] = val;
+                        self.xregs[rd] = val;
                     }
                     0x4 => {
                         // lbu
                         let val = self.ram.read8(addr)?;
-                        self.regs[rd] = val;
+                        self.xregs[rd] = val;
                     }
                     0x5 => {
                         // lhu
                         let val = self.ram.read16(addr)?;
-                        self.regs[rd] = val;
+                        self.xregs[rd] = val;
                     }
                     _ => {}
                 }
@@ -269,20 +271,20 @@ impl Cpu {
                 let rs2 = read_bits(inst, 20..24) as usize;
                 let imm2 = ((inst & 0xfe00_0000) as i32 >> 25) as u32;
                 let imm = (imm2 << 5) | imm1;
-                let addr = self.regs[rs1].wrapping_add(imm);
+                let addr = self.xregs[rs1].wrapping_add(imm);
 
                 match funct3 {
                     0x0 => {
                         // sb
-                        self.ram.write8(addr, self.regs[rs2])?;
+                        self.ram.write8(addr, self.xregs[rs2])?;
                     }
                     0x1 => {
                         // sh
-                        self.ram.write16(addr, self.regs[rs2])?;
+                        self.ram.write16(addr, self.xregs[rs2])?;
                     }
                     0x2 => {
                         // sw
-                        self.ram.write32(addr, self.regs[rs2])?;
+                        self.ram.write32(addr, self.xregs[rs2])?;
                     }
                     _ => {}
                 }
@@ -303,37 +305,37 @@ impl Cpu {
                 match funct3 {
                     0x0 => {
                         // beq
-                        if self.regs[rs1] == self.regs[rs2] {
+                        if self.xregs[rs1] == self.xregs[rs2] {
                             self.pc = self.pc.wrapping_add(imm).wrapping_sub(4)
                         };
                     }
                     0x1 => {
                         // bne
-                        if self.regs[rs1] != self.regs[rs2] {
+                        if self.xregs[rs1] != self.xregs[rs2] {
                             self.pc = self.pc.wrapping_add(imm).wrapping_sub(4)
                         };
                     }
                     0x4 => {
                         // blt
-                        if (self.regs[rs1] as i32) < (self.regs[rs2] as i32) {
+                        if (self.xregs[rs1] as i32) < (self.xregs[rs2] as i32) {
                             self.pc = self.pc.wrapping_add(imm).wrapping_sub(4)
                         };
                     }
                     0x5 => {
                         // bge
-                        if (self.regs[rs1] as i32) >= (self.regs[rs2] as i32) {
+                        if (self.xregs[rs1] as i32) >= (self.xregs[rs2] as i32) {
                             self.pc = self.pc.wrapping_add(imm).wrapping_sub(4)
                         };
                     }
                     0x6 => {
                         // bltu
-                        if self.regs[rs1] < self.regs[rs2] {
+                        if self.xregs[rs1] < self.xregs[rs2] {
                             self.pc = self.pc.wrapping_add(imm).wrapping_sub(4)
                         };
                     }
                     0x7 => {
                         // bgeu
-                        if self.regs[rs1] >= self.regs[rs2] {
+                        if self.xregs[rs1] >= self.xregs[rs2] {
                             self.pc = self.pc.wrapping_add(imm).wrapping_sub(4)
                         };
                     }
@@ -352,7 +354,7 @@ impl Cpu {
                 // Jumps can therefore target a ±1 MiB range (1.2.5)
                 let imm = imm20 << 20 | imm19 << 12 | imm11 << 11 | imm10 << 1;
 
-                self.regs[rd] = self.pc;
+                self.xregs[rd] = self.pc;
                 self.pc = self.pc.wrapping_add(imm).wrapping_sub(4);
             }
 
@@ -363,9 +365,9 @@ impl Cpu {
                 let funct3 = read_bits(inst, 12..14);
                 let rs1 = read_bits(inst, 15..19) as usize;
                 let imm = ((inst as i32) >> 20) as u32;
-                let addr = self.regs[rs1].wrapping_add(imm);
+                let addr = self.xregs[rs1].wrapping_add(imm);
                 if funct3 == 0 {
-                    self.regs[rd] = self.pc;
+                    self.xregs[rd] = self.pc;
                     self.pc = addr;
                 }
             }
@@ -374,7 +376,7 @@ impl Cpu {
                 // U-type
                 // lui
                 let rd = read_bits(inst, 7..11) as usize;
-                self.regs[rd] = inst & 0xFFFF_F000;
+                self.xregs[rd] = inst & 0xFFFF_F000;
             }
 
             0b001_0111 => {
@@ -382,7 +384,7 @@ impl Cpu {
                 // auipc
                 let rd = read_bits(inst, 7..11) as usize;
                 let imm = inst & 0xFFFF_F000;
-                self.regs[rd] = self.pc.wrapping_add(imm).wrapping_sub(4);
+                self.xregs[rd] = self.pc.wrapping_add(imm).wrapping_sub(4);
             }
 
             // RV32 Zicsr + ecall/ebreak
@@ -476,43 +478,43 @@ impl Cpu {
                     0b001 => {
                         // csrrw
                         if rd != 0 {
-                            self.regs[rd] = self.csrr(csr)?;
+                            self.xregs[rd] = self.csrr(csr)?;
                         }
-                        self.csrw(csr, self.regs[rs1])?;
+                        self.csrw(csr, self.xregs[rs1])?;
                     }
                     0b010 => {
                         // csrrs
-                        self.regs[rd] = self.csrr(csr)?;
+                        self.xregs[rd] = self.csrr(csr)?;
                         if rs1 != 0 {
-                            self.csrw(csr, self.regs[rd] | self.regs[rs1])?;
+                            self.csrw(csr, self.xregs[rd] | self.xregs[rs1])?;
                         }
                     }
                     0b011 => {
                         // csrrc
-                        self.regs[rd] = self.csrr(csr)?;
+                        self.xregs[rd] = self.csrr(csr)?;
                         if rs1 != 0 {
-                            self.csrw(csr, self.regs[rd] & !self.regs[rs1])?;
+                            self.csrw(csr, self.xregs[rd] & !self.xregs[rs1])?;
                         }
                     }
                     0b101 => {
                         // csrrwi
                         if rd != 0 {
-                            self.regs[rd] = self.csrr(csr)?;
+                            self.xregs[rd] = self.csrr(csr)?;
                         }
                         self.csrw(csr, imm)?;
                     }
                     0b110 => {
                         // csrrsi
-                        self.regs[rd] = self.csrr(csr)?;
+                        self.xregs[rd] = self.csrr(csr)?;
                         if imm != 0 {
-                            self.csrw(csr, self.regs[rd] | imm)?;
+                            self.csrw(csr, self.xregs[rd] | imm)?;
                         }
                     }
                     0b111 => {
                         // csrrci
-                        self.regs[rd] = self.csrr(csr)?;
+                        self.xregs[rd] = self.csrr(csr)?;
                         if imm != 0 {
-                            self.csrw(csr, self.regs[rd] & !imm)?;
+                            self.csrw(csr, self.xregs[rd] & !imm)?;
                         }
                     }
                     _ => {}
@@ -541,13 +543,13 @@ impl Cpu {
                     (0x2, 0x02) => {
                         // TODO: implement set reserve
                         // lr.w
-                        self.regs[rd] = self.ram.read32(self.regs[rs1])?;
+                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
                     }
                     (0x2, 0x03) => {
                         // TODO: implement check reserve
                         // sc.w
-                        self.ram.write32(self.regs[rs1], self.regs[rs2])?;
-                        self.regs[rd] = 0;
+                        self.ram.write32(self.xregs[rs1], self.xregs[rs2])?;
+                        self.xregs[rd] = 0;
                     }
                     (0x2, 0x01) => {
                         // amoswap.w
@@ -556,8 +558,8 @@ impl Cpu {
                             place the value into register rd, apply a binary operator to the loaded value
                             and the original value in rs2, then store the result back to the address in rs1. (1.8.4)
                         */
-                        self.regs[rd] = self.ram.read32(self.regs[rs1])?;
-                        self.ram.write32(self.regs[rs1], self.regs[rs2])?;
+                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
+                        self.ram.write32(self.xregs[rs1], self.xregs[rs2])?;
 
                         /*
                             atomically load a 32-bit signed data value from the address in rs1,
@@ -566,62 +568,62 @@ impl Cpu {
                             then store the result back to the address in rs1.
                             (https://msyksphinz-self.github.io/riscv-isadoc/html/rva.html#amoswap-w)
                         */
-                        // self.regs.swap(rd, rs2);
+                        // self.xregs.swap(rd, rs2);
                     }
                     (0x2, 0x00) => {
                         // amoadd.w
-                        self.regs[rd] = self.ram.read32(self.regs[rs1])?;
+                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
                         self.ram
-                            .write32(self.regs[rs1], self.regs[rd].wrapping_add(self.regs[rs2]))?;
+                            .write32(self.xregs[rs1], self.xregs[rd].wrapping_add(self.xregs[rs2]))?;
                     }
                     (0x2, 0x04) => {
                         // amoxor.w
-                        self.regs[rd] = self.ram.read32(self.regs[rs1])?;
+                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
                         self.ram
-                            .write32(self.regs[rs1], self.regs[rd] ^ self.regs[rs2])?;
+                            .write32(self.xregs[rs1], self.xregs[rd] ^ self.xregs[rs2])?;
                     }
                     (0x2, 0x0C) => {
                         // amoand.w
-                        self.regs[rd] = self.ram.read32(self.regs[rs1])?;
+                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
                         self.ram
-                            .write32(self.regs[rs1], self.regs[rd] & self.regs[rs2])?;
+                            .write32(self.xregs[rs1], self.xregs[rd] & self.xregs[rs2])?;
                     }
                     (0x2, 0x0A) => {
                         // amoor.w
-                        self.regs[rd] = self.ram.read32(self.regs[rs1])?;
+                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
                         self.ram
-                            .write32(self.regs[rs1], self.regs[rd] | self.regs[rs2])?;
+                            .write32(self.xregs[rs1], self.xregs[rd] | self.xregs[rs2])?;
                     }
                     (0x2, 0x10) => {
                         // amomin.w
-                        self.regs[rd] = self.ram.read32(self.regs[rs1])?;
+                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
                         self.ram.write32(
-                            self.regs[rs1],
-                            std::cmp::min(self.regs[rd] as i32, self.regs[rs2] as i32) as u32,
+                            self.xregs[rs1],
+                            std::cmp::min(self.xregs[rd] as i32, self.xregs[rs2] as i32) as u32,
                         )?;
                     }
                     (0x2, 0x14) => {
                         // amomax.w
-                        self.regs[rd] = self.ram.read32(self.regs[rs1])?;
+                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
                         self.ram.write32(
-                            self.regs[rs1],
-                            std::cmp::max(self.regs[rd] as i32, self.regs[rs2] as i32) as u32,
+                            self.xregs[rs1],
+                            std::cmp::max(self.xregs[rd] as i32, self.xregs[rs2] as i32) as u32,
                         )?;
                     }
                     (0x2, 0x18) => {
                         // amominu.w
-                        self.regs[rd] = self.ram.read32(self.regs[rs1])?;
+                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
                         self.ram.write32(
-                            self.regs[rs1],
-                            std::cmp::min(self.regs[rd], self.regs[rs2]),
+                            self.xregs[rs1],
+                            std::cmp::min(self.xregs[rd], self.xregs[rs2]),
                         )?;
                     }
                     (0x2, 0x1C) => {
                         // amomaxu.w
-                        self.regs[rd] = self.ram.read32(self.regs[rs1])?;
+                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
                         self.ram.write32(
-                            self.regs[rs1],
-                            std::cmp::max(self.regs[rd], self.regs[rs2]),
+                            self.xregs[rs1],
+                            std::cmp::max(self.xregs[rd], self.xregs[rs2]),
                         )?;
                     }
                     _ => {}
@@ -643,12 +645,236 @@ impl Cpu {
                 }
             }
 
+            // RV32FD
+            0b101_0011 => {
+                // R-type
+                let rd = read_bits(inst, 7..11) as usize;
+                let funct3 = read_bits(inst, 12..14);
+                let rm = funct3;
+                let rs1 = read_bits(inst, 15..19) as usize;
+                let rs2 = read_bits(inst, 20..24) as usize;
+                let fmt = read_bits(inst, 25..26);
+                let funct5 = read_bits(inst, 27..31);
+
+                /* 
+                    A value of 111 in the instruction’s rm field selects the dynamic rounding mode held in frm.
+                    If frm is set to an invalid value (101–111), any subsequent attempt to execute a floating-point operation 
+                    with a dynamic rounding mode will raise an illegal instruction exception. (1.11.2)
+                */
+                match funct5 {
+                    0x00 => {
+                        if fmt == fpu::FP32 {
+                            // fadd.s
+                            self.fregs32[rd] = fpu::fadd_32(self.fregs32[rs1], self.fregs32[rs2], rm)?;
+                        }
+                        else if fmt == fpu::FP64 {
+                            // fadd.d
+                            self.fregs64[rd] = fpu::fadd_64(self.fregs64[rs1], self.fregs64[rs2], rm)?;
+                        }
+                    }
+                    0x01 => {
+                        if fmt == fpu::FP32 {
+                            // fsub.s
+                            self.fregs32[rd] = fpu::fsub_32(self.fregs32[rs1], self.fregs32[rs2], rm)?;
+                        }
+                        else if fmt == fpu::FP64 {
+                            // fsub.d
+                            self.fregs64[rd] = fpu::fsub_64(self.fregs64[rs1], self.fregs64[rs2], rm)?;
+                        }
+                    }
+                    0x02 => {
+                        if fmt == fpu::FP32 {
+                            // fmul.s
+                            self.fregs32[rd] = fpu::fmul_32(self.fregs32[rs1], self.fregs32[rs2], rm)?;
+                        }
+                        else if fmt == fpu::FP64 {
+                            // fmul.d
+                            self.fregs64[rd] = fpu::fmul_64(self.fregs64[rs1], self.fregs64[rs2], rm)?;
+                        }
+                    }
+                    0x03 => {
+                        if fmt == fpu::FP32 {
+                            // fdiv.s
+                            self.fregs32[rd] = fpu::fdiv_32(self.fregs32[rs1], self.fregs32[rs2], rm)?;
+                        }
+                        else if fmt == fpu::FP64 {
+                            // fdiv.d
+                            self.fregs64[rd] = fpu::fdiv_64(self.fregs64[rs1], self.fregs64[rs2], rm)?;
+                        }
+                    }
+                    0x04 => {
+                        // fsgnj
+                        // fsgnjn
+                        // fsgnjx
+                        if fmt == fpu::FP32 {
+                            self.fregs32[rd] = fpu::fsgnj_32(self.fregs32[rs1], self.fregs32[rs2], rm)?;
+                        }
+                        else if fmt == fpu::FP64 {
+                            self.fregs64[rd] = fpu::fsgnj_64(self.fregs64[rs1], self.fregs64[rs2], rm)?;
+                        }
+                    }
+                    0x05 => {
+                        match funct3 {
+                            0b000 => {
+                                // fmin
+                                if fmt == fpu::FP32 {
+                                    self.fregs32[rd] = fpu::fmin(self.fregs32[rs1], self.fregs32[rs2]);
+                                }
+                                else if fmt == fpu::FP64 {
+                                    self.fregs64[rd] = fpu::fmin(self.fregs64[rs1], self.fregs64[rs2]);
+                                }
+                            }
+                            0b001 => {
+                                // fmax
+                                if fmt == fpu::FP32 {
+                                    self.fregs32[rd] = fpu::fmax(self.fregs32[rs1], self.fregs32[rs2]);
+                                }
+                                else if fmt == fpu::FP64 {
+                                    self.fregs64[rd] = fpu::fmax(self.fregs64[rs1], self.fregs64[rs2]);
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    0x0B => {
+                        if fmt == fpu::FP32 {
+                            // fsqrt.s
+                            self.fregs32[rd] = fpu::fsqrt_32(self.fregs32[rs1], rm)?;
+                        }
+                        else if fmt == fpu::FP64 {
+                            // fsqrt.d
+                            self.fregs64[rd] = fpu::fsqrt_64(self.fregs64[rs1], rm)?;
+                        }
+                    }
+                    0x08 => {
+                        match rs2 {
+                            0x0 => {
+                                // fcvt.d.s
+                                self.fregs64[rd] = self.fregs32[rs1] as f64;
+                            }
+                            0x1 => {
+                                // fcvt.s.d
+                                self.fregs32[rd] = self.fregs64[rs1] as f32;
+                            }
+                            _ => {}
+                        }
+                    }
+                    0x18 => {
+                        match rs2 {
+                            0x0 => {
+                                if fmt == fpu::FP32 {
+                                    // fcvt.w.s
+                                    self.xregs[rd] = self.fregs32[rs1] as i32 as u32;
+                                }
+                                else if fmt == fpu::FP64 {
+                                    // fcvt.w.d
+                                    self.xregs[rd] = self.fregs64[rs1] as i32 as u32;
+                                }
+                            }
+                            0x1 => {
+                                if fmt == fpu::FP32 {
+                                    // fcvt.wu.s
+                                    self.xregs[rd] = self.fregs32[rs1] as u32;
+                                }
+                                else if fmt == fpu::FP64 {
+                                    // fcvt.wu.d
+                                    self.xregs[rd] = self.fregs64[rs1] as u32;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    0x1A => {
+                        match rs2 {
+                            0x0 => {
+                                if fmt == fpu::FP32 {
+                                    // fcvt.s.w
+                                    self.fregs32[rd] = self.xregs[rs1] as i32 as f32;
+                                }
+                                else if fmt == fpu::FP64 {
+                                    // fcvt.d.w
+                                    self.fregs64[rd] = self.xregs[rs1] as i32 as f64;
+                                }
+                            }
+                            0x1 => {
+                                if fmt == fpu::FP32 {
+                                    // fcvt.s.wu
+                                    self.fregs32[rd] = self.xregs[rs1] as f32;
+                                }
+                                else if fmt == fpu::FP64 {
+                                    // fcvt.d.wu
+                                    self.fregs64[rd] = self.xregs[rs1] as f64;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    0x14 => {
+                        match funct3 {
+                            0b000 => {
+                                // fle
+                                if fmt == fpu::FP32 {
+                                    self.xregs[rd] = fpu::fle(self.fregs32[rs1], self.fregs32[rs2]);
+                                }
+                                else if fmt == fpu::FP64 {
+                                    self.xregs[rd] = fpu::fle(self.fregs64[rs1], self.fregs64[rs2]);
+                                }
+                            }
+                            0b001 => {
+                                // flt
+                                if fmt == fpu::FP32 {
+                                    self.xregs[rd] = fpu::flt(self.fregs32[rs1], self.fregs32[rs2]);
+                                }
+                                else if fmt == fpu::FP64 {
+                                    self.xregs[rd] = fpu::flt(self.fregs64[rs1], self.fregs64[rs2]);
+                                }
+                            }
+                            0b010 => {
+                                // feq
+                                if fmt == fpu::FP32 {
+                                    self.xregs[rd] = fpu::feq(self.fregs32[rs1], self.fregs32[rs2]);
+                                }
+                                else if fmt == fpu::FP64 {
+                                    self.xregs[rd] = fpu::feq(self.fregs64[rs1], self.fregs64[rs2]);
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    0x1C => {
+                        match funct3 {
+                            0b000 => {
+                                // fmv.x.w
+                                self.xregs[rd] = self.fregs32[rs1].to_bits();
+                            }
+                            0b001 => {
+                                // fclass
+                                if fmt == fpu::FP32 {
+                                    self.xregs[rd] = fpu::fclass_32(self.fregs32[rs1]);
+                                }
+                                else if fmt == fpu::FP64 {
+                                    self.xregs[rd] = fpu::fclass_64(self.fregs64[rs1]);
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    0x1E => {
+                        // fmv.w.x
+                        self.fregs32[rd] = f32::from_bits(self.xregs[rs1]);
+                    }
+
+                    _ => {}
+                }
+
+            }
+
             _ => {
                 return Err(Exception::IllegalInstruction);
             }
         }
         // Register x0 is hardwired with all bits equal to 0. (1.2.1)
-        self.regs[0] = 0;
+        self.xregs[0] = 0;
         Ok(())
     }
 }
