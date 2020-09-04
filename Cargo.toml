@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 elf = "0.0.10"
 num-traits = "0.2.12"
+softfloat-wrapper = "0.1.1"
