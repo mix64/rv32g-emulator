@@ -15,7 +15,7 @@ const FFLAGS_OF: u8 = 1 << 2; // Overflow
 const FFLAGS_DZ: u8 = 1 << 3; // Divide by Zero
 const FFLAGS_NV: u8 = 1 << 4; // Invalid Operation
 
-static mut FCSR: u32 = 0;
+pub static mut FCSR: u32 = 0;
 
 fn rnd_from_u32(rnd: u32) -> Result<RoundingMode, Exception> {
     match rnd {

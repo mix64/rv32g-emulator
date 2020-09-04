@@ -1,3 +1,4 @@
+use super::fpu;
 use crate::bits::*;
 use crate::cpu::{Cpu, Mode};
 use crate::exception::Exception;
@@ -78,6 +79,9 @@ impl Cpu {
             MCAUSE => Ok(self.csrs.mcause),
             MTVAL => Ok(self.csrs.mtval),
             MHARTID => Ok(0),
+            FCSR => unsafe { Ok(fpu::FCSR) },
+            FFLAGS => unsafe {Ok(fpu::FCSR & 0x1F)},
+            FRM => unsafe {Ok(fpu::FCSR & 0xE0)},
             _ => Err(Exception::IllegalInstruction),
         }
     }
@@ -121,6 +125,26 @@ impl Cpu {
             }
             MTVAL => {
                 self.csrs.mtval = imm;
+                Ok(())
+            }
+            FCSR => {
+                unsafe {
+                    fpu::FCSR = imm;
+                }
+                Ok(())
+            }
+            FFLAGS => {
+                unsafe {
+                    fpu::FCSR &= !0x1F;
+                    fpu::FCSR |= imm & 0x1F;
+                }
+                Ok(())
+            }
+            FRM => {
+                unsafe {
+                    fpu::FCSR &= !0xE0;
+                    fpu::FCSR |= imm & 0xE0;
+                }
                 Ok(())
             }
             _ => Err(Exception::IllegalInstruction),
