@@ -990,16 +990,16 @@ impl Cpu {
                 let rd = read_bits(inst, 7..11) as usize;
                 let funct3 = read_bits(inst, 12..14);
                 let rs1 = read_bits(inst, 15..19) as usize;
-                let offset = read_bits(inst, 20..21);
+                let offset = read_bits(inst, 20..31);
                 match funct3 {
                     0b010 => {
                         // flw
                         self.fregs[rd] =
-                            f32::from_bits(self.ram.read32(self.xregs[rs1] + offset)?) as f64;
+                            f32::from_bits(self.ram.read32(self.xregs[rs1].wrapping_add(offset))?) as f64;
                     }
                     0b011 => {
                         // fld
-                        self.fregs[rd] = f64::from_bits(self.ram.read64(self.xregs[rs1] + offset)?);
+                        self.fregs[rd] = f64::from_bits(self.ram.read64(self.xregs[rs1].wrapping_add(offset))?);
                     }
                     _ => {}
                 }
