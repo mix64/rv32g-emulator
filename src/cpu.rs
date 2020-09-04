@@ -20,8 +20,7 @@ pub enum Mode {
 
 pub struct Cpu {
     pub xregs: [u32; 32],
-    pub fregs32: [f32; 32],
-    pub fregs64: [f64; 32],
+    pub fregs: [f64; 32],
     pub csrs: CSRs,
     pub pc: u32,
     pub mode: Mode,
@@ -34,8 +33,7 @@ impl Cpu {
         xregs[SP] = MEMORY_SIZE;
         Cpu {
             xregs,
-            fregs32: [0.0f32; 32],
-            fregs64: [0.0f64; 32],
+            fregs: [0.0f64; 32],
             csrs: CSRs::new(),
             pc: 0,
             ram: Memory::new(),
@@ -87,27 +85,13 @@ impl Cpu {
             println!(
                 "f{:02}={:}  f{:02}={:}  f{:02}={:}  f{:02}={:}",
                 i,
-                self.fregs32[i],
+                self.fregs[i],
                 i + 1,
-                self.fregs32[i + 1],
+                self.fregs[i + 1],
                 i + 2,
-                self.fregs32[i + 2],
+                self.fregs[i + 2],
                 i + 3,
-                self.fregs32[i + 3],
-            );
-        }
-
-        for i in (0..32).step_by(4) {
-            println!(
-                "f{:02}={:}  f{:02}={:}  f{:02}={:}  f{:02}={:}",
-                i,
-                self.fregs64[i],
-                i + 1,
-                self.fregs64[i + 1],
-                i + 2,
-                self.fregs64[i + 2],
-                i + 3,
-                self.fregs64[i + 3],
+                self.fregs[i + 3],
             );
         }
     }

@@ -4,7 +4,6 @@ use crate::bits::*;
 use crate::cpu::{Cpu, Mode};
 use crate::exception::Exception;
 
-
 impl Cpu {
     pub fn execute(&mut self, inst: u32) -> Result<(), Exception> {
         let opcode = read_bits(inst, 0..6);
@@ -216,7 +215,8 @@ impl Cpu {
                             }
                             0x20 => {
                                 // srai
-                                self.xregs[rd] = (self.xregs[rs1] as i32).wrapping_shr(shamt) as u32;
+                                self.xregs[rd] =
+                                    (self.xregs[rs1] as i32).wrapping_shr(shamt) as u32;
                             }
                             _ => {}
                         }
@@ -573,8 +573,10 @@ impl Cpu {
                     (0x2, 0x00) => {
                         // amoadd.w
                         self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
-                        self.ram
-                            .write32(self.xregs[rs1], self.xregs[rd].wrapping_add(self.xregs[rs2]))?;
+                        self.ram.write32(
+                            self.xregs[rs1],
+                            self.xregs[rd].wrapping_add(self.xregs[rs2]),
+                        )?;
                     }
                     (0x2, 0x04) => {
                         // amoxor.w
@@ -650,56 +652,71 @@ impl Cpu {
                 // R-type
                 let rd = read_bits(inst, 7..11) as usize;
                 let funct3 = read_bits(inst, 12..14);
-                let rm = funct3;
                 let rs1 = read_bits(inst, 15..19) as usize;
                 let rs2 = read_bits(inst, 20..24) as usize;
                 let fmt = read_bits(inst, 25..26);
                 let funct5 = read_bits(inst, 27..31);
 
-                /* 
+                /*
                     A value of 111 in the instruction’s rm field selects the dynamic rounding mode held in frm.
-                    If frm is set to an invalid value (101–111), any subsequent attempt to execute a floating-point operation 
+                    If frm is set to an invalid value (101–111), any subsequent attempt to execute a floating-point operation
                     with a dynamic rounding mode will raise an illegal instruction exception. (1.11.2)
                 */
                 match funct5 {
                     0x00 => {
                         if fmt == fpu::FP32 {
                             // fadd.s
-                            self.fregs32[rd] = fpu::fadd_32(self.fregs32[rs1], self.fregs32[rs2], rm)?;
-                        }
-                        else if fmt == fpu::FP64 {
+                            self.fregs[rd] = fpu::fadd_32(
+                                self.fregs[rs1] as f32,
+                                self.fregs[rs2] as f32,
+                                funct3,
+                            )? as f64;
+                        } else if fmt == fpu::FP64 {
                             // fadd.d
-                            self.fregs64[rd] = fpu::fadd_64(self.fregs64[rs1], self.fregs64[rs2], rm)?;
+                            self.fregs[rd] =
+                                fpu::fadd_64(self.fregs[rs1], self.fregs[rs2], funct3)?;
                         }
                     }
                     0x01 => {
                         if fmt == fpu::FP32 {
                             // fsub.s
-                            self.fregs32[rd] = fpu::fsub_32(self.fregs32[rs1], self.fregs32[rs2], rm)?;
-                        }
-                        else if fmt == fpu::FP64 {
+                            self.fregs[rd] = fpu::fsub_32(
+                                self.fregs[rs1] as f32,
+                                self.fregs[rs2] as f32,
+                                funct3,
+                            )? as f64;
+                        } else if fmt == fpu::FP64 {
                             // fsub.d
-                            self.fregs64[rd] = fpu::fsub_64(self.fregs64[rs1], self.fregs64[rs2], rm)?;
+                            self.fregs[rd] =
+                                fpu::fsub_64(self.fregs[rs1], self.fregs[rs2], funct3)?;
                         }
                     }
                     0x02 => {
                         if fmt == fpu::FP32 {
                             // fmul.s
-                            self.fregs32[rd] = fpu::fmul_32(self.fregs32[rs1], self.fregs32[rs2], rm)?;
-                        }
-                        else if fmt == fpu::FP64 {
+                            self.fregs[rd] = fpu::fmul_32(
+                                self.fregs[rs1] as f32,
+                                self.fregs[rs2] as f32,
+                                funct3,
+                            )? as f64;
+                        } else if fmt == fpu::FP64 {
                             // fmul.d
-                            self.fregs64[rd] = fpu::fmul_64(self.fregs64[rs1], self.fregs64[rs2], rm)?;
+                            self.fregs[rd] =
+                                fpu::fmul_64(self.fregs[rs1], self.fregs[rs2], funct3)?;
                         }
                     }
                     0x03 => {
                         if fmt == fpu::FP32 {
                             // fdiv.s
-                            self.fregs32[rd] = fpu::fdiv_32(self.fregs32[rs1], self.fregs32[rs2], rm)?;
-                        }
-                        else if fmt == fpu::FP64 {
+                            self.fregs[rd] = fpu::fdiv_32(
+                                self.fregs[rs1] as f32,
+                                self.fregs[rs2] as f32,
+                                funct3,
+                            )? as f64;
+                        } else if fmt == fpu::FP64 {
                             // fdiv.d
-                            self.fregs64[rd] = fpu::fdiv_64(self.fregs64[rs1], self.fregs64[rs2], rm)?;
+                            self.fregs[rd] =
+                                fpu::fdiv_64(self.fregs[rs1], self.fregs[rs2], funct3)?;
                         }
                     }
                     0x04 => {
@@ -707,10 +724,14 @@ impl Cpu {
                         // fsgnjn
                         // fsgnjx
                         if fmt == fpu::FP32 {
-                            self.fregs32[rd] = fpu::fsgnj_32(self.fregs32[rs1], self.fregs32[rs2], rm)?;
-                        }
-                        else if fmt == fpu::FP64 {
-                            self.fregs64[rd] = fpu::fsgnj_64(self.fregs64[rs1], self.fregs64[rs2], rm)?;
+                            self.fregs[rd] = fpu::fsgnj_32(
+                                self.fregs[rs1] as f32,
+                                self.fregs[rs2] as f32,
+                                funct3,
+                            )? as f64;
+                        } else if fmt == fpu::FP64 {
+                            self.fregs[rd] =
+                                fpu::fsgnj_64(self.fregs[rs1], self.fregs[rs2], funct3)?;
                         }
                     }
                     0x05 => {
@@ -718,19 +739,21 @@ impl Cpu {
                             0b000 => {
                                 // fmin
                                 if fmt == fpu::FP32 {
-                                    self.fregs32[rd] = fpu::fmin(self.fregs32[rs1], self.fregs32[rs2]);
-                                }
-                                else if fmt == fpu::FP64 {
-                                    self.fregs64[rd] = fpu::fmin(self.fregs64[rs1], self.fregs64[rs2]);
+                                    self.fregs[rd] =
+                                        fpu::fmin(self.fregs[rs1] as f32, self.fregs[rs2] as f32)
+                                            as f64;
+                                } else if fmt == fpu::FP64 {
+                                    self.fregs[rd] = fpu::fmin(self.fregs[rs1], self.fregs[rs2]);
                                 }
                             }
                             0b001 => {
                                 // fmax
                                 if fmt == fpu::FP32 {
-                                    self.fregs32[rd] = fpu::fmax(self.fregs32[rs1], self.fregs32[rs2]);
-                                }
-                                else if fmt == fpu::FP64 {
-                                    self.fregs64[rd] = fpu::fmax(self.fregs64[rs1], self.fregs64[rs2]);
+                                    self.fregs[rd] =
+                                        fpu::fmax(self.fregs[rs1] as f32, self.fregs[rs2] as f32)
+                                            as f64;
+                                } else if fmt == fpu::FP64 {
+                                    self.fregs[rd] = fpu::fmax(self.fregs[rs1], self.fregs[rs2]);
                                 }
                             }
                             _ => {}
@@ -739,22 +762,21 @@ impl Cpu {
                     0x0B => {
                         if fmt == fpu::FP32 {
                             // fsqrt.s
-                            self.fregs32[rd] = fpu::fsqrt_32(self.fregs32[rs1], rm)?;
-                        }
-                        else if fmt == fpu::FP64 {
+                            self.fregs[rd] = fpu::fsqrt_32(self.fregs[rs1] as f32, funct3)? as f64;
+                        } else if fmt == fpu::FP64 {
                             // fsqrt.d
-                            self.fregs64[rd] = fpu::fsqrt_64(self.fregs64[rs1], rm)?;
+                            self.fregs[rd] = fpu::fsqrt_64(self.fregs[rs1], funct3)?;
                         }
                     }
                     0x08 => {
                         match rs2 {
                             0x0 => {
                                 // fcvt.d.s
-                                self.fregs64[rd] = self.fregs32[rs1] as f64;
+                                self.fregs[rd] = self.fregs[rs1];
                             }
                             0x1 => {
                                 // fcvt.s.d
-                                self.fregs32[rd] = self.fregs64[rs1] as f32;
+                                self.fregs[rd] = fpu::fcvt_s_d(self.fregs[rs1], funct3)? as f64;
                             }
                             _ => {}
                         }
@@ -764,21 +786,21 @@ impl Cpu {
                             0x0 => {
                                 if fmt == fpu::FP32 {
                                     // fcvt.w.s
-                                    self.xregs[rd] = self.fregs32[rs1] as i32 as u32;
-                                }
-                                else if fmt == fpu::FP64 {
+                                    self.xregs[rd] =
+                                        fpu::fcvt_w_s(self.fregs[rs1] as f32, funct3)? as u32;
+                                } else if fmt == fpu::FP64 {
                                     // fcvt.w.d
-                                    self.xregs[rd] = self.fregs64[rs1] as i32 as u32;
+                                    self.xregs[rd] = fpu::fcvt_w_d(self.fregs[rs1], funct3)? as u32;
                                 }
                             }
                             0x1 => {
                                 if fmt == fpu::FP32 {
                                     // fcvt.wu.s
-                                    self.xregs[rd] = self.fregs32[rs1] as u32;
-                                }
-                                else if fmt == fpu::FP64 {
+                                    self.xregs[rd] =
+                                        fpu::fcvt_wu_s(self.fregs[rs1] as f32, funct3)?;
+                                } else if fmt == fpu::FP64 {
                                     // fcvt.wu.d
-                                    self.xregs[rd] = self.fregs64[rs1] as u32;
+                                    self.xregs[rd] = fpu::fcvt_wu_d(self.fregs[rs1], funct3)?;
                                 }
                             }
                             _ => {}
@@ -789,21 +811,21 @@ impl Cpu {
                             0x0 => {
                                 if fmt == fpu::FP32 {
                                     // fcvt.s.w
-                                    self.fregs32[rd] = self.xregs[rs1] as i32 as f32;
-                                }
-                                else if fmt == fpu::FP64 {
+                                    self.fregs[rd] =
+                                        fpu::fcvt_s_w(self.xregs[rs1] as i32, funct3)? as f64;
+                                } else if fmt == fpu::FP64 {
                                     // fcvt.d.w
-                                    self.fregs64[rd] = self.xregs[rs1] as i32 as f64;
+                                    self.fregs[rd] = fpu::fcvt_d_w(self.xregs[rs1] as i32, funct3)?;
                                 }
                             }
                             0x1 => {
                                 if fmt == fpu::FP32 {
                                     // fcvt.s.wu
-                                    self.fregs32[rd] = self.xregs[rs1] as f32;
-                                }
-                                else if fmt == fpu::FP64 {
+                                    self.fregs[rd] =
+                                        fpu::fcvt_s_wu(self.xregs[rs1], funct3)? as f64;
+                                } else if fmt == fpu::FP64 {
                                     // fcvt.d.wu
-                                    self.fregs64[rd] = self.xregs[rs1] as f64;
+                                    self.fregs[rd] = fpu::fcvt_d_wu(self.xregs[rs1], funct3)?;
                                 }
                             }
                             _ => {}
@@ -814,28 +836,28 @@ impl Cpu {
                             0b000 => {
                                 // fle
                                 if fmt == fpu::FP32 {
-                                    self.xregs[rd] = fpu::fle(self.fregs32[rs1], self.fregs32[rs2]);
-                                }
-                                else if fmt == fpu::FP64 {
-                                    self.xregs[rd] = fpu::fle(self.fregs64[rs1], self.fregs64[rs2]);
+                                    self.xregs[rd] =
+                                        fpu::fle(self.fregs[rs1] as f32, self.fregs[rs2] as f32);
+                                } else if fmt == fpu::FP64 {
+                                    self.xregs[rd] = fpu::fle(self.fregs[rs1], self.fregs[rs2]);
                                 }
                             }
                             0b001 => {
                                 // flt
                                 if fmt == fpu::FP32 {
-                                    self.xregs[rd] = fpu::flt(self.fregs32[rs1], self.fregs32[rs2]);
-                                }
-                                else if fmt == fpu::FP64 {
-                                    self.xregs[rd] = fpu::flt(self.fregs64[rs1], self.fregs64[rs2]);
+                                    self.xregs[rd] =
+                                        fpu::flt(self.fregs[rs1] as f32, self.fregs[rs2] as f32);
+                                } else if fmt == fpu::FP64 {
+                                    self.xregs[rd] = fpu::flt(self.fregs[rs1], self.fregs[rs2]);
                                 }
                             }
                             0b010 => {
                                 // feq
                                 if fmt == fpu::FP32 {
-                                    self.xregs[rd] = fpu::feq(self.fregs32[rs1], self.fregs32[rs2]);
-                                }
-                                else if fmt == fpu::FP64 {
-                                    self.xregs[rd] = fpu::feq(self.fregs64[rs1], self.fregs64[rs2]);
+                                    self.xregs[rd] =
+                                        fpu::feq(self.fregs[rs1] as f32, self.fregs[rs2] as f32);
+                                } else if fmt == fpu::FP64 {
+                                    self.xregs[rd] = fpu::feq(self.fregs[rs1], self.fregs[rs2]);
                                 }
                             }
                             _ => {}
@@ -845,15 +867,14 @@ impl Cpu {
                         match funct3 {
                             0b000 => {
                                 // fmv.x.w
-                                self.xregs[rd] = self.fregs32[rs1].to_bits();
+                                self.xregs[rd] = (self.fregs[rs1] as f32).to_bits();
                             }
                             0b001 => {
                                 // fclass
                                 if fmt == fpu::FP32 {
-                                    self.xregs[rd] = fpu::fclass_32(self.fregs32[rs1]);
-                                }
-                                else if fmt == fpu::FP64 {
-                                    self.xregs[rd] = fpu::fclass_64(self.fregs64[rs1]);
+                                    self.xregs[rd] = fpu::fclass_32(self.fregs[rs1] as f32);
+                                } else if fmt == fpu::FP64 {
+                                    self.xregs[rd] = fpu::fclass_64(self.fregs[rs1]);
                                 }
                             }
                             _ => {}
@@ -861,12 +882,152 @@ impl Cpu {
                     }
                     0x1E => {
                         // fmv.w.x
-                        self.fregs32[rd] = f32::from_bits(self.xregs[rs1]);
+                        self.fregs[rd] = f32::from_bits(self.xregs[rs1]) as f64;
                     }
 
                     _ => {}
                 }
+            }
 
+            0b100_0011 => {
+                // R4-type
+                let rd = read_bits(inst, 7..11) as usize;
+                let funct3 = read_bits(inst, 12..14);
+                let rs1 = read_bits(inst, 15..19) as usize;
+                let rs2 = read_bits(inst, 20..24) as usize;
+                let fmt = read_bits(inst, 25..26);
+                let rs3 = read_bits(inst, 27..31) as usize;
+
+                if fmt == fpu::FP32 {
+                    // fmadd.s
+                    self.fregs[rd] = fpu::fmadd_32(
+                        self.fregs[rs1] as f32,
+                        self.fregs[rs2] as f32,
+                        self.fregs[rs3] as f32,
+                        funct3,
+                    )? as f64;
+                } else if fmt == fpu::FP64 {
+                    // fmadd.d
+                    self.fregs[rd] =
+                        fpu::fmadd_64(self.fregs[rs1], self.fregs[rs2], self.fregs[rs3], funct3)?;
+                }
+            }
+
+            0b100_0111 => {
+                // R4-type
+                let rd = read_bits(inst, 7..11) as usize;
+                let funct3 = read_bits(inst, 12..14);
+                let rs1 = read_bits(inst, 15..19) as usize;
+                let rs2 = read_bits(inst, 20..24) as usize;
+                let fmt = read_bits(inst, 25..26);
+                let rs3 = read_bits(inst, 27..31) as usize;
+
+                if fmt == fpu::FP32 {
+                    // fmsub.s
+                    self.fregs[rd] = fpu::fmadd_32(
+                        self.fregs[rs1] as f32,
+                        self.fregs[rs2] as f32,
+                        -self.fregs[rs3] as f32,
+                        funct3,
+                    )? as f64;
+                } else if fmt == fpu::FP64 {
+                    // fmsub.d
+                    self.fregs[rd] =
+                        fpu::fmadd_64(self.fregs[rs1], self.fregs[rs2], -self.fregs[rs3], funct3)?;
+                }
+            }
+
+            0b100_1011 => {
+                // R4-type
+                let rd = read_bits(inst, 7..11) as usize;
+                let funct3 = read_bits(inst, 12..14);
+                let rs1 = read_bits(inst, 15..19) as usize;
+                let rs2 = read_bits(inst, 20..24) as usize;
+                let fmt = read_bits(inst, 25..26);
+                let rs3 = read_bits(inst, 27..31) as usize;
+
+                if fmt == fpu::FP32 {
+                    // fnmsub.s
+                    self.fregs[rd] = fpu::fmadd_32(
+                        -self.fregs[rs1] as f32,
+                        self.fregs[rs2] as f32,
+                        self.fregs[rs3] as f32,
+                        funct3,
+                    )? as f64;
+                } else if fmt == fpu::FP64 {
+                    // fnmsub.d
+                    self.fregs[rd] =
+                        fpu::fmadd_64(-self.fregs[rs1], self.fregs[rs2], self.fregs[rs3], funct3)?;
+                }
+            }
+
+            0b100_1111 => {
+                // R4-type
+                let rd = read_bits(inst, 7..11) as usize;
+                let funct3 = read_bits(inst, 12..14);
+                let rs1 = read_bits(inst, 15..19) as usize;
+                let rs2 = read_bits(inst, 20..24) as usize;
+                let fmt = read_bits(inst, 25..26);
+                let rs3 = read_bits(inst, 27..31) as usize;
+
+                if fmt == fpu::FP32 {
+                    // fnmadd.s
+                    self.fregs[rd] = fpu::fmadd_32(
+                        -self.fregs[rs1] as f32,
+                        self.fregs[rs2] as f32,
+                        -self.fregs[rs3] as f32,
+                        funct3,
+                    )? as f64;
+                } else if fmt == fpu::FP64 {
+                    // fnmadd.d
+                    self.fregs[rd] =
+                        fpu::fmadd_64(-self.fregs[rs1], self.fregs[rs2], -self.fregs[rs3], funct3)?;
+                }
+            }
+
+            0b000_0111 => {
+                // I-type
+                let rd = read_bits(inst, 7..11) as usize;
+                let funct3 = read_bits(inst, 12..14);
+                let rs1 = read_bits(inst, 15..19) as usize;
+                let offset = read_bits(inst, 20..21);
+                match funct3 {
+                    0b010 => {
+                        // flw
+                        self.fregs[rd] =
+                            f32::from_bits(self.ram.read32(self.xregs[rs1] + offset)?) as f64;
+                    }
+                    0b011 => {
+                        // fld
+                        self.fregs[rd] = f64::from_bits(self.ram.read64(self.xregs[rs1] + offset)?);
+                    }
+                    _ => {}
+                }
+            }
+
+            0b010_0111 => {
+                // fsw
+                // S-type
+                let imm1 = read_bits(inst, 7..11);
+                let funct3 = read_bits(inst, 12..14);
+                let rs1 = read_bits(inst, 15..19) as usize;
+                let rs2 = read_bits(inst, 20..24) as usize;
+                let imm2 = read_bits(inst, 25..31);
+                let imm = imm2 << 5 | imm1;
+
+                match funct3 {
+                    0b010 => {
+                        // fsw
+                        self.ram
+                            .write32(self.xregs[rs1] + imm, (self.fregs[rs2] as f32).to_bits())?;
+                    }
+                    0b011 => {
+                        // fsd
+                        self.ram
+                            .write64(self.xregs[rs1] + imm, self.fregs[rs2].to_bits())?;
+                    }
+                    _ => {}
+                }
             }
 
             _ => {
