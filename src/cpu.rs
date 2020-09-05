@@ -2,7 +2,6 @@
 mod csr;
 mod execute;
 #[allow(unused_variables)]
-mod fpu;
 
 use crate::exception::Exception;
 use crate::memory::*;

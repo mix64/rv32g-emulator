@@ -1,4 +1,4 @@
-use super::fpu;
+use crate::fpu;
 use crate::bits::*;
 use crate::cpu::{Cpu, Mode};
 use crate::exception::Exception;

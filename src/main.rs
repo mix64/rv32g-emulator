@@ -7,6 +7,7 @@ use std::io::prelude::*;
 
 mod bits;
 mod cpu;
+mod fpu;
 mod exception;
 mod memory;
 
