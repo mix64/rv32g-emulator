@@ -7,8 +7,8 @@ use std::io::prelude::*;
 
 mod bits;
 mod cpu;
-mod fpu;
 mod exception;
+mod fpu;
 mod memory;
 
 use cpu::Cpu;

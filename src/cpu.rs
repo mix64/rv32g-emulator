@@ -1,8 +1,8 @@
 #[allow(dead_code)]
 mod csr;
 mod execute;
+mod trap;
 #[allow(unused_variables)]
-
 use crate::exception::Exception;
 use crate::memory::*;
 use csr::CSRs;

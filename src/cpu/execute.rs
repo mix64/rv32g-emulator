@@ -1,8 +1,8 @@
 use super::csr;
-use crate::fpu;
 use crate::bits::*;
 use crate::cpu::{Cpu, Mode};
 use crate::exception::Exception;
+use crate::fpu;
 
 impl Cpu {
     pub fn execute(&mut self, inst: u32) -> Result<(), Exception> {
@@ -995,11 +995,13 @@ impl Cpu {
                     0b010 => {
                         // flw
                         self.fregs[rd] =
-                            f32::from_bits(self.ram.read32(self.xregs[rs1].wrapping_add(offset))?) as f64;
+                            f32::from_bits(self.ram.read32(self.xregs[rs1].wrapping_add(offset))?)
+                                as f64;
                     }
                     0b011 => {
                         // fld
-                        self.fregs[rd] = f64::from_bits(self.ram.read64(self.xregs[rs1].wrapping_add(offset))?);
+                        self.fregs[rd] =
+                            f64::from_bits(self.ram.read64(self.xregs[rs1].wrapping_add(offset))?);
                     }
                     _ => {}
                 }
