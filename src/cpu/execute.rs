@@ -236,27 +236,27 @@ impl Cpu {
                 match funct3 {
                     0x0 => {
                         // lb
-                        let val = self.ram.read8(addr)?;
+                        let val = self.vm_read8(addr)?;
                         self.xregs[rd] = val as i8 as i32 as u32;
                     }
                     0x1 => {
                         // lh
-                        let val = self.ram.read16(addr)?;
+                        let val = self.vm_read16(addr)?;
                         self.xregs[rd] = val as i16 as i32 as u32;
                     }
                     0x2 => {
                         // lw
-                        let val = self.ram.read32(addr)?;
+                        let val = self.vm_read32(addr)?;
                         self.xregs[rd] = val;
                     }
                     0x4 => {
                         // lbu
-                        let val = self.ram.read8(addr)?;
+                        let val = self.vm_read8(addr)?;
                         self.xregs[rd] = val;
                     }
                     0x5 => {
                         // lhu
-                        let val = self.ram.read16(addr)?;
+                        let val = self.vm_read16(addr)?;
                         self.xregs[rd] = val;
                     }
                     _ => {}
@@ -276,15 +276,15 @@ impl Cpu {
                 match funct3 {
                     0x0 => {
                         // sb
-                        self.ram.write8(addr, self.xregs[rs2])?;
+                        self.vm_write8(addr, self.xregs[rs2] as u8)?;
                     }
                     0x1 => {
                         // sh
-                        self.ram.write16(addr, self.xregs[rs2])?;
+                        self.vm_write16(addr, self.xregs[rs2] as u16)?;
                     }
                     0x2 => {
                         // sw
-                        self.ram.write32(addr, self.xregs[rs2])?;
+                        self.vm_write32(addr, self.xregs[rs2])?;
                     }
                     _ => {}
                 }
@@ -394,7 +394,7 @@ impl Cpu {
                 let imm = read_bits(inst, 15..19);
                 let rs1 = imm as usize;
                 let funct12 = read_bits(inst, 20..31);
-                let csr = funct12 as u16;
+                let csr = funct12 as usize;
 
                 match funct3 {
                     0b000 => {
@@ -543,12 +543,12 @@ impl Cpu {
                     (0x2, 0x02) => {
                         // TODO: implement set reserve
                         // lr.w
-                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
+                        self.xregs[rd] = self.vm_read32(self.xregs[rs1])?;
                     }
                     (0x2, 0x03) => {
                         // TODO: implement check reserve
                         // sc.w
-                        self.ram.write32(self.xregs[rs1], self.xregs[rs2])?;
+                        self.vm_write32(self.xregs[rs1], self.xregs[rs2])?;
                         self.xregs[rd] = 0;
                     }
                     (0x2, 0x01) => {
@@ -558,8 +558,8 @@ impl Cpu {
                             place the value into register rd, apply a binary operator to the loaded value
                             and the original value in rs2, then store the result back to the address in rs1. (1.8.4)
                         */
-                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
-                        self.ram.write32(self.xregs[rs1], self.xregs[rs2])?;
+                        self.xregs[rd] = self.vm_read32(self.xregs[rs1])?;
+                        self.vm_write32(self.xregs[rs1], self.xregs[rs2])?;
 
                         /*
                             atomically load a 32-bit signed data value from the address in rs1,
@@ -572,58 +572,55 @@ impl Cpu {
                     }
                     (0x2, 0x00) => {
                         // amoadd.w
-                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
-                        self.ram.write32(
+                        self.xregs[rd] = self.vm_read32(self.xregs[rs1])?;
+                        self.vm_write32(
                             self.xregs[rs1],
                             self.xregs[rd].wrapping_add(self.xregs[rs2]),
                         )?;
                     }
                     (0x2, 0x04) => {
                         // amoxor.w
-                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
-                        self.ram
-                            .write32(self.xregs[rs1], self.xregs[rd] ^ self.xregs[rs2])?;
+                        self.xregs[rd] = self.vm_read32(self.xregs[rs1])?;
+                        self.vm_write32(self.xregs[rs1], self.xregs[rd] ^ self.xregs[rs2])?;
                     }
                     (0x2, 0x0C) => {
                         // amoand.w
-                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
-                        self.ram
-                            .write32(self.xregs[rs1], self.xregs[rd] & self.xregs[rs2])?;
+                        self.xregs[rd] = self.vm_read32(self.xregs[rs1])?;
+                        self.vm_write32(self.xregs[rs1], self.xregs[rd] & self.xregs[rs2])?;
                     }
                     (0x2, 0x0A) => {
                         // amoor.w
-                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
-                        self.ram
-                            .write32(self.xregs[rs1], self.xregs[rd] | self.xregs[rs2])?;
+                        self.xregs[rd] = self.vm_read32(self.xregs[rs1])?;
+                        self.vm_write32(self.xregs[rs1], self.xregs[rd] | self.xregs[rs2])?;
                     }
                     (0x2, 0x10) => {
                         // amomin.w
-                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
-                        self.ram.write32(
+                        self.xregs[rd] = self.vm_read32(self.xregs[rs1])?;
+                        self.vm_write32(
                             self.xregs[rs1],
                             std::cmp::min(self.xregs[rd] as i32, self.xregs[rs2] as i32) as u32,
                         )?;
                     }
                     (0x2, 0x14) => {
                         // amomax.w
-                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
-                        self.ram.write32(
+                        self.xregs[rd] = self.vm_read32(self.xregs[rs1])?;
+                        self.vm_write32(
                             self.xregs[rs1],
                             std::cmp::max(self.xregs[rd] as i32, self.xregs[rs2] as i32) as u32,
                         )?;
                     }
                     (0x2, 0x18) => {
                         // amominu.w
-                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
-                        self.ram.write32(
+                        self.xregs[rd] = self.vm_read32(self.xregs[rs1])?;
+                        self.vm_write32(
                             self.xregs[rs1],
                             std::cmp::min(self.xregs[rd], self.xregs[rs2]),
                         )?;
                     }
                     (0x2, 0x1C) => {
                         // amomaxu.w
-                        self.xregs[rd] = self.ram.read32(self.xregs[rs1])?;
-                        self.ram.write32(
+                        self.xregs[rd] = self.vm_read32(self.xregs[rs1])?;
+                        self.vm_write32(
                             self.xregs[rs1],
                             std::cmp::max(self.xregs[rd], self.xregs[rs2]),
                         )?;
@@ -995,13 +992,13 @@ impl Cpu {
                     0b010 => {
                         // flw
                         self.fregs[rd] =
-                            f32::from_bits(self.ram.read32(self.xregs[rs1].wrapping_add(offset))?)
+                            f32::from_bits(self.vm_read32(self.xregs[rs1].wrapping_add(offset))?)
                                 as f64;
                     }
                     0b011 => {
                         // fld
                         self.fregs[rd] =
-                            f64::from_bits(self.ram.read64(self.xregs[rs1].wrapping_add(offset))?);
+                            f64::from_bits(self.vm_read64(self.xregs[rs1].wrapping_add(offset))?);
                     }
                     _ => {}
                 }
@@ -1020,13 +1017,11 @@ impl Cpu {
                 match funct3 {
                     0b010 => {
                         // fsw
-                        self.ram
-                            .write32(self.xregs[rs1] + imm, (self.fregs[rs2] as f32).to_bits())?;
+                        self.vm_write32(self.xregs[rs1] + imm, (self.fregs[rs2] as f32).to_bits())?;
                     }
                     0b011 => {
                         // fsd
-                        self.ram
-                            .write64(self.xregs[rs1] + imm, self.fregs[rs2].to_bits())?;
+                        self.vm_write64(self.xregs[rs1] + imm, self.fregs[rs2].to_bits())?;
                     }
                     _ => {}
                 }

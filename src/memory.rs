@@ -6,6 +6,31 @@ pub struct Memory {
     pub ram: Vec<u8>,
 }
 
+pub enum MemOps {
+    Load,
+    Store,
+    Fetch,
+}
+
+fn chk_address(start: u32, size: u32, ops: MemOps) -> Result<(), Exception> {
+    if start + size >= MEMORY_SIZE {
+        match ops {
+            MemOps::Load => return Err(Exception::LoadAccessFault),
+            MemOps::Store => return Err(Exception::StoreAMOAccessFault),
+            MemOps::Fetch => return Err(Exception::InstructionAccessFault),
+        }
+    }
+
+    if start % size != 0 {
+        match ops {
+            MemOps::Load => return Err(Exception::LoadAddressMisaligned),
+            MemOps::Store => return Err(Exception::StoreAMOAddressMisaligned),
+            MemOps::Fetch => return Err(Exception::InstructionAddressMisaligned),
+        }
+    }
+    Ok(())
+}
+
 impl Memory {
     pub fn new() -> Memory {
         Self {
@@ -17,16 +42,24 @@ impl Memory {
         self.ram.splice(..binary.len(), binary.iter().cloned());
     }
 
+    pub fn fetch(&self, addr: u32) -> Result<u32, Exception> {
+        chk_address(addr, 4, MemOps::Fetch)?;
+        return self.read32(addr);
+    }
+
     pub fn read8(&self, addr: u32) -> Result<u32, Exception> {
+        chk_address(addr, 1, MemOps::Load)?;
         Ok(self.ram[addr as usize] as u32)
     }
 
     pub fn read16(&self, addr: u32) -> Result<u32, Exception> {
+        chk_address(addr, 2, MemOps::Load)?;
         let index = addr as usize;
         Ok((self.ram[index] as u32) | ((self.ram[index + 1] as u32) << 8))
     }
 
     pub fn read32(&self, addr: u32) -> Result<u32, Exception> {
+        chk_address(addr, 4, MemOps::Load)?;
         let index = addr as usize;
         Ok((self.ram[index] as u32)
             | ((self.ram[index + 1] as u32) << 8)
@@ -35,6 +68,7 @@ impl Memory {
     }
 
     pub fn read64(&self, addr: u32) -> Result<u64, Exception> {
+        chk_address(addr, 8, MemOps::Load)?;
         let index = addr as usize;
         Ok((self.ram[index] as u64)
             | ((self.ram[index + 1] as u64) << 8)
@@ -46,13 +80,15 @@ impl Memory {
             | ((self.ram[index + 7] as u64) << 56))
     }
 
-    pub fn write8(&mut self, addr: u32, val: u32) -> Result<(), Exception> {
+    pub fn write8(&mut self, addr: u32, val: u8) -> Result<(), Exception> {
+        chk_address(addr, 1, MemOps::Store)?;
         let index = addr as usize;
-        self.ram[index] = val as u8;
+        self.ram[index] = val;
         Ok(())
     }
 
-    pub fn write16(&mut self, addr: u32, val: u32) -> Result<(), Exception> {
+    pub fn write16(&mut self, addr: u32, val: u16) -> Result<(), Exception> {
+        chk_address(addr, 2, MemOps::Store)?;
         let index = addr as usize;
         self.ram[index] = (val & 0xff) as u8;
         self.ram[index + 1] = ((val >> 8) & 0xff) as u8;
@@ -60,6 +96,7 @@ impl Memory {
     }
 
     pub fn write32(&mut self, addr: u32, val: u32) -> Result<(), Exception> {
+        chk_address(addr, 4, MemOps::Store)?;
         let index = addr as usize;
         self.ram[index] = (val & 0xff) as u8;
         self.ram[index + 1] = ((val >> 8) & 0xff) as u8;
@@ -67,7 +104,9 @@ impl Memory {
         self.ram[index + 3] = ((val >> 24) & 0xff) as u8;
         Ok(())
     }
+
     pub fn write64(&mut self, addr: u32, val: u64) -> Result<(), Exception> {
+        chk_address(addr, 8, MemOps::Store)?;
         let index = addr as usize;
         self.ram[index] = (val & 0xff) as u8;
         self.ram[index + 1] = ((val >> 8) & 0xff) as u8;

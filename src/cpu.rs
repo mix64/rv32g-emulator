@@ -2,12 +2,13 @@
 mod csr;
 mod execute;
 mod trap;
+mod vm;
 #[allow(unused_variables)]
 use crate::exception::Exception;
 use crate::memory::*;
-use csr::CSRs;
 
 const SP: usize = 2;
+const NCSR: usize = 0x1000;
 
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, PartialOrd, Eq, Copy, Clone)]
@@ -20,7 +21,7 @@ pub enum Mode {
 pub struct Cpu {
     pub xregs: [u32; 32],
     pub fregs: [f64; 32],
-    pub csrs: CSRs,
+    pub csrs: [u32; NCSR],
     pub pc: u32,
     pub mode: Mode,
     pub ram: Memory,
@@ -33,7 +34,7 @@ impl Cpu {
         Cpu {
             xregs,
             fregs: [0.0f64; 32],
-            csrs: CSRs::new(),
+            csrs: [0; NCSR],
             pc: 0,
             ram: Memory::new(),
             mode: Mode::Machine,
@@ -42,7 +43,8 @@ impl Cpu {
 
     pub fn run(&mut self, end: u32) -> Result<(), Exception> {
         loop {
-            let inst = self.fetch()?;
+            let inst = self.vm_fetch(self.pc)?;
+            self.pc += 4;
 
             // println!("[{:08x}] {:08x}", self.pc - 4, inst);
             self.execute(inst)?;
@@ -50,16 +52,6 @@ impl Cpu {
                 return Ok(());
             }
         }
-    }
-
-    pub fn fetch(&mut self) -> Result<u32, Exception> {
-        // TODO: if self.pc & 1 == 1 {raise exception of Instruction address misaligned}
-        if self.pc & 1 == 1 {
-            return Err(Exception::InstructionAddressMisaligned);
-        }
-        let inst = self.ram.read32(self.pc)?;
-        self.pc += 4;
-        Ok(inst)
     }
 
     pub fn dump_registers(&self) {
@@ -82,14 +74,18 @@ impl Cpu {
         }
         for i in (0..32).step_by(4) {
             println!(
-                "f{:02}={:}  f{:02}={:}  f{:02}={:}  f{:02}={:}",
+                "f{:02}={:#018x} ({:3})  f{:02}={:#018x} ({:3})  f{:02}={:#018x} ({:3})  f{:02}={:#018x} ({:3})",
                 i,
+                self.fregs[i].to_bits(),
                 self.fregs[i],
                 i + 1,
+                self.fregs[i+1].to_bits(),
                 self.fregs[i + 1],
                 i + 2,
+                self.fregs[i+2].to_bits(),
                 self.fregs[i + 2],
                 i + 3,
+                self.fregs[i+3].to_bits(),
                 self.fregs[i + 3],
             );
         }
